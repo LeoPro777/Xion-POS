@@ -118,12 +118,12 @@ export function ArqueoModal({ open, onClose }: ArqueoModalProps) {
                       <TableCell className="text-right">
                         {realAmounts[item.method] ? (
                           <Badge
-                            className={`px-3 py-1.5 text-sm font-semibold ${
+                            className={`px-3 py-1.5 text-sm font-black shadow-sm ${
                               diff === 0
-                                ? "bg-emerald-100 text-emerald-700"
+                                ? "bg-primary text-primary-foreground border-0"
                                 : diff > 0
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "bg-red-100 text-red-700"
+                                  ? "bg-amber-500 text-amber-950 border-0"
+                                  : "bg-destructive text-destructive-foreground border-0"
                             }`}
                           >
                             {diff >= 0 ? "+" : ""}
@@ -155,12 +155,12 @@ export function ArqueoModal({ open, onClose }: ArqueoModalProps) {
                 </TableCell>
                 <TableCell className="text-right">
                   <Badge
-                    className={`px-3 py-1.5 text-sm font-bold ${
+                    className={`px-3 py-1.5 text-sm font-black shadow-md ${
                       totalDifference === 0
-                        ? "bg-emerald-100 text-emerald-700"
+                        ? "bg-primary text-primary-foreground border-0"
                         : totalDifference > 0
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-red-100 text-red-700"
+                          ? "bg-amber-500 text-amber-950 border-0"
+                          : "bg-destructive text-destructive-foreground border-0"
                     }`}
                   >
                     {totalDifference >= 0 ? "+" : ""}

@@ -70,10 +70,10 @@ const userSchema = z.object({
 type UserFormValues = z.infer<typeof userSchema>
 
 const roleColors = {
-  admin: "bg-red-100 text-red-700",
-  manager: "bg-blue-100 text-blue-700",
-  cashier: "bg-emerald-100 text-emerald-700",
-  viewer: "bg-gray-100 text-gray-700",
+  admin: "bg-primary text-primary-foreground",
+  manager: "bg-primary text-primary-foreground",
+  cashier: "bg-primary text-primary-foreground",
+  viewer: "bg-primary text-primary-foreground",
 }
 
 const roleLabels = {
@@ -202,13 +202,13 @@ export function UsersModule() {
         <Card className="border-border/50 shadow-sm transition-all hover:shadow-md">
           <CardHeader className="pb-2">
             <CardTitle className="flex gap-2 items-center text-sm font-medium text-muted-foreground">
-              <Check className="h-4 w-4 text-emerald-500" /> Usuarios Activos
+              <Check className="h-4 w-4 text-primary" /> Usuarios Activos
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-bold text-emerald-600">{activeUsers}</p>
-              <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Online</Badge>
+              <p className="text-3xl font-bold text-primary">{activeUsers}</p>
+              <Badge className="bg-primary text-primary-foreground border-0 shadow-sm font-bold">Online</Badge>
             </div>
           </CardContent>
         </Card>
@@ -222,7 +222,7 @@ export function UsersModule() {
           <CardContent>
             <div className="flex items-baseline gap-2">
               <p className="text-3xl font-bold text-primary">{adminUsers}</p>
-              <Badge className="bg-red-100 text-red-700 border-red-200">Admin</Badge>
+              <Badge className="bg-primary text-primary-foreground border-0 shadow-sm font-bold">Admin</Badge>
             </div>
           </CardContent>
         </Card>
@@ -290,7 +290,7 @@ export function UsersModule() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className={`font-medium border-0 px-2 py-0.5 ${roleColors[user.role]}`}>
+                  <Badge className={`font-black border-0 px-2.5 py-0.5 shadow-sm text-[10px] uppercase tracking-wider ${user.role === 'admin' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
                     {roleLabels[user.role]}
                   </Badge>
                 </TableCell>
@@ -300,9 +300,9 @@ export function UsersModule() {
                       checked={user.status === "active"}
                       onCheckedChange={() => handleToggleStatus(user)}
                     />
-                    <span className={`text-sm font-medium ${user.status === "active" ? "text-emerald-600" : "text-muted-foreground"}`}>
-                      {user.status === "active" ? "Activo" : "Inactivo"}
-                    </span>
+                    <Badge className={`font-black shadow-sm px-3 border-0 ${user.status === "active" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground opacity-50"}`}>
+                      {user.status === "active" ? "ACTIVO" : "INACTIVO"}
+                    </Badge>
                   </div>
                 </TableCell>
                 <TableCell>

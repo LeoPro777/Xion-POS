@@ -380,15 +380,15 @@ export function InventoryModule() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card className="border-border/50 shadow-sm transition-all hover:shadow-md">
           <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><Box className="w-5 h-5 text-primary" /> Total Productos</CardTitle></CardHeader>
-          <CardContent><div className="flex items-baseline gap-2"><p className="text-3xl font-bold">{products.length}</p><Badge className="bg-emerald-100/50 text-emerald-700">Activos</Badge></div></CardContent>
+          <CardContent><div className="flex items-baseline gap-2"><p className="text-3xl font-bold">{products.length}</p><Badge className="bg-primary text-primary-foreground shadow-sm font-bold border-0">Activos</Badge></div></CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm transition-all hover:shadow-md">
-          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-emerald-500"/> Valor Costo</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-primary"/> Valor Costo</CardTitle></CardHeader>
           <CardContent><p className="text-3xl font-bold">${products.reduce((sum, p) => sum + p.cost_usd * p.cached_stock_quantity, 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p><p className="text-sm text-muted-foreground">Bs {(products.reduce((sum, p) => sum + p.cost_usd * p.cached_stock_quantity, 0) * exchangeRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm transition-all hover:shadow-md">
-          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><Layers className="w-5 h-5 text-amber-500"/> Stock Bajo</CardTitle></CardHeader>
-          <CardContent><div className="flex items-baseline gap-2"><p className="text-3xl font-bold">{products.filter((p) => p.cached_stock_quantity <= p.min_stock_alert && p.product_type !== 'service').length}</p><Badge className="bg-amber-100/50 text-amber-700">En alerta</Badge></div></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><Layers className="w-5 h-5 text-primary"/> Stock Bajo</CardTitle></CardHeader>
+          <CardContent><div className="flex items-baseline gap-2"><p className="text-3xl font-bold">{products.filter((p) => p.cached_stock_quantity <= p.min_stock_alert && p.product_type !== 'service').length}</p><Badge className="bg-primary text-primary-foreground shadow-sm font-bold border-0">Stock bajo</Badge></div></CardContent>
         </Card>
       </div>
 
@@ -398,8 +398,15 @@ export function InventoryModule() {
           <Input placeholder="Buscar por nombre, SKU, etiquetas..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-12 rounded-xl border-border bg-card pr-4 pl-12 text-base shadow-sm focus-visible:ring-primary/20" />
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsExcelDialogOpen(true)} className="h-12 flex items-center justify-center font-semibold rounded-xl border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 shadow-sm"><FileSpreadsheet className="h-5 w-5 mr-2" />Excel</Button>
-          <Button onClick={() => handleOpenDialog()} className="h-12 gap-2 rounded-xl font-semibold shadow-md"><Plus className="h-5 w-5" /> Registrar Producto</Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setIsExcelDialogOpen(true)} 
+            className="h-12 flex items-center justify-center font-bold rounded-xl border-0 bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-all active:scale-95"
+          >
+            <FileSpreadsheet className="h-5 w-5 mr-2" />
+            Excel
+          </Button>
+          <Button onClick={() => handleOpenDialog()} className="h-12 gap-2 rounded-xl font-bold shadow-md active:scale-95"><Plus className="h-5 w-5" /> Registrar Producto</Button>
         </div>
       </div>
 
@@ -432,18 +439,18 @@ export function InventoryModule() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={product.product_type === 'virtual' ? "bg-purple-100 text-purple-700 border-transparent shadow-sm" : product.product_type === 'service' ? "bg-blue-100 text-blue-700 border-transparent shadow-sm" : "bg-slate-100 text-slate-700 border-transparent shadow-sm"}>
+                      <Badge variant="outline" className="bg-primary text-primary-foreground border-0 shadow-sm font-bold">
                         {product.product_type === 'physical' ? 'Físico' : product.product_type === 'virtual' ? 'Combo' : 'Servicio'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex flex-col items-end gap-0.5">
+                      <div className="flex flex-col items-end gap-1">
                         <span className="font-black text-primary text-sm">${product.price_usd.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">Bs {(product.price_usd * exchangeRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[10px] font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full shadow-sm">Bs {(product.price_usd * exchangeRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      {product.product_type === "service" ? <span className="text-xs text-muted-foreground">∞ Ilimitado</span> : <Badge className={isLowStock ? "bg-red-100 hover:bg-red-100 text-red-700 shadow-none border-red-200" : "bg-emerald-100 hover:bg-emerald-100 text-emerald-700 shadow-none border-emerald-200"}>{product.cached_stock_quantity} {product.unit_measure}</Badge>}
+                      {product.product_type === "service" ? <span className="text-xs text-muted-foreground">∞ Ilimitado</span> : <Badge className={`${isLowStock ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"} font-black shadow-sm border-0 px-3`}>{product.cached_stock_quantity} {product.unit_measure}</Badge>}
                     </TableCell>
                     <TableCell className="text-right pr-4">
                       <div className="flex justify-end gap-1">
@@ -708,7 +715,7 @@ export function InventoryModule() {
                       <div className="text-sm font-medium opacity-70 uppercase tracking-wider">
                         {isVirtual ? "STOCK PROYECTADO" : "STOCK ACTUAL"}
                       </div>
-                      <Badge className="text-xl bg-background font-mono px-4 py-1 border-primary/20">
+                      <Badge className={cn("text-xl font-black font-mono px-4 py-1 border-0 shadow-sm", (editingProduct?.cached_stock_quantity || 0) <= (editingProduct?.min_stock_alert || 0) ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground")}>
                         {isVirtual ? projectedComboStock : editingProduct?.cached_stock_quantity} {form.watch("unit_measure")}
                       </Badge>
                     </div>
@@ -730,8 +737,8 @@ export function InventoryModule() {
       
       <Dialog open={isExcelDialogOpen} onOpenChange={setIsExcelDialogOpen}>
          <DialogContent className="sm:max-w-md shadow-2xl rounded-2xl border-0">
-            <DialogHeader className="p-6 bg-emerald-50 border-b border-emerald-100">
-                <DialogTitle className="text-xl font-bold flex items-center gap-2 text-emerald-800">
+            <DialogHeader className="p-6 bg-primary/10 border-b border-primary/20">
+                <DialogTitle className="text-xl font-bold flex items-center gap-2 text-primary">
                   <FileSpreadsheet className="h-6 w-6"/> Importación Excel
                 </DialogTitle>
                 <DialogDescription className="sr-only">
@@ -742,15 +749,15 @@ export function InventoryModule() {
                 <div className="space-y-3">
                   <p className="font-semibold px-1">Paso 1: Usar Plantilla Validada</p>
                   <p className="text-muted-foreground px-1 text-xs">Asegúrese de emplear la estructura correcta para que el sistema procese el lote de activos estrictamente.</p>
-                  <Button onClick={downloadExcelTemplate} variant="outline" className="w-full border-emerald-600/30 text-emerald-700 font-bold hover:bg-emerald-50/50 hover:text-emerald-800"><Download className="h-4 w-4 mr-2" /> Descargar Modelo Autorizado</Button>
+                  <Button onClick={downloadExcelTemplate} variant="outline" className="w-full border-primary/30 text-primary font-bold hover:bg-primary/20 hover:text-primary"><Download className="h-4 w-4 mr-2" /> Descargar Modelo Autorizado</Button>
                 </div>
                 
                 <div className="space-y-3">
                   <p className="font-semibold px-1">Paso 2: Cargar Registro</p>
-                  <div className="border-2 border-dashed border-emerald-600/30 bg-emerald-50/20 rounded-xl p-8 flex flex-col items-center justify-center text-center gap-4 hover:bg-emerald-50/40 transition-colors">
-                      <FileSpreadsheet className={`h-10 w-10 text-emerald-600/60 ${isImporting ? 'animate-bounce' : ''}`} />
-                      <Input disabled={isImporting} type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} className="max-w-xs border-emerald-200" />
-                      {isImporting && <p className="text-emerald-700 font-bold animate-pulse text-xs bg-emerald-100 px-3 py-1.5 rounded-full mt-2">Procesando y validando matriz masiva...</p>}
+                  <div className="border-2 border-dashed border-primary/30 bg-primary/5 rounded-xl p-8 flex flex-col items-center justify-center text-center gap-4 hover:bg-primary/10 transition-colors">
+                      <FileSpreadsheet className={`h-10 w-10 text-primary ${isImporting ? 'animate-bounce' : ''}`} />
+                      <Input disabled={isImporting} type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} className="max-w-xs border-primary/50" />
+                      {isImporting && <p className="text-primary font-bold animate-pulse text-xs bg-primary/20 px-3 py-1.5 rounded-full mt-2">Procesando y validando matriz masiva...</p>}
                   </div>
                 </div>
             </div>

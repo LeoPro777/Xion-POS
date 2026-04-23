@@ -122,6 +122,7 @@ if (!gotTheLock) {
       
       ipcMain.on('update-download', () => updater.downloadUpdate());
       ipcMain.on('update-install', () => updater.installUpdate());
+      ipcMain.on('update-check', () => updater.checkForUpdates());
 
       setTimeout(() => updater.checkForUpdates(), 10000);
     } catch (err: any) {

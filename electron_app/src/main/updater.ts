@@ -15,8 +15,8 @@ export class AppUpdater {
     constructor(window: BrowserWindow) {
         this.window = window;
         
-        // El usuario decide cuándo descargar la actualización.
-        autoUpdater.autoDownload = false;
+        // El usuario decide cuándo descargar la actualización (ahora modificado a descarga automática)
+        autoUpdater.autoDownload = true;
         autoUpdater.autoInstallOnAppQuit = true;
 
         this.registerEvents();

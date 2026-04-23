@@ -91,7 +91,7 @@ export function AperturaModal({ open, onClose }: AperturaModalProps) {
           <Button 
             onClick={handleConfirm} 
             disabled={openMutation.isPending || loadingUsers}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-8"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 font-bold"
           >
             {openMutation.isPending ? "Abriendo..." : "Abrir Turno"}
           </Button>

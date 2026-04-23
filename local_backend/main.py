@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Xion POS Local API",
-    version="1.1.1",
+    version="1.1.3",
     description="Offline-first POS backend for Desktop nodes",
     lifespan=lifespan,
     debug=True,

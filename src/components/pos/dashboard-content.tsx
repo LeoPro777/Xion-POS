@@ -110,7 +110,7 @@ export function DashboardContent({ onOpenCaja, onCloseCaja }: DashboardContentPr
           <Button
             onClick={onOpenCaja}
             disabled={isCajaOpen || loadingSession}
-            className="h-14 gap-3 rounded-xl bg-emerald-600 px-8 text-lg font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-lg"
+            className="h-14 gap-3 rounded-xl bg-primary px-8 text-lg font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 shadow-lg"
           >
             <LockOpen className="h-6 w-6" />
             Abrir Caja
@@ -128,9 +128,9 @@ export function DashboardContent({ onOpenCaja, onCloseCaja }: DashboardContentPr
 
         {/* Status badge */}
         {isCajaOpen && (
-          <div className="inline-flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-3 w-fit">
-            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-sm font-semibold text-emerald-700">Caja abierta y lista para transacciones ({activeSession.user_name})</span>
+          <div className="inline-flex items-center gap-3 rounded-xl bg-primary px-6 py-4 w-fit shadow-lg shadow-primary/20 animate-in fade-in slide-in-from-top-2 duration-500">
+            <div className="h-3 w-3 rounded-full bg-primary-foreground animate-pulse" />
+            <span className="text-base font-black text-primary-foreground">Caja abierta y lista para transacciones ({activeSession.user_name})</span>
           </div>
         )}
 

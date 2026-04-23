@@ -33,7 +33,8 @@ const api = {
             };
         },
         download: () => ipcRenderer.send('update-download'),
-        install: () => ipcRenderer.send('update-install')
+        install: () => ipcRenderer.send('update-install'),
+        check: () => ipcRenderer.send('update-check')
     },
     backend: {
       getUrl: () => ipcRenderer.invoke('get-backend-url'),

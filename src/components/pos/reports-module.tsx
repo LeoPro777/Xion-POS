@@ -68,8 +68,8 @@ export function ReportsModule() {
       id: "sales",
       title: "Reportes de Ventas",
       icon: ShoppingCart,
-      color: "text-emerald-600",
-      bgColor: "bg-emerald-50",
+      color: "text-primary",
+      bgColor: "bg-primary/10",
       reports: [
         { id: "sales_daily", name: "Ventas Diarias", description: "Resumen de ventas por día" },
         { id: "sales_monthly", name: "Ventas Mensuales", description: "Consolidado mensual de ventas" },
@@ -82,8 +82,8 @@ export function ReportsModule() {
       id: "purchases",
       title: "Reportes de Compras",
       icon: Truck,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
+      color: "text-primary",
+      bgColor: "bg-primary/10",
       reports: [
         { id: "purchases_daily", name: "Compras Diarias", description: "Detalle de compras diarias" },
         { id: "purchases_monthly", name: "Compras Mensuales", description: "Consolidado mensual" },
@@ -95,8 +95,8 @@ export function ReportsModule() {
       id: "inventory",
       title: "Reportes de Inventario",
       icon: Package,
-      color: "text-amber-600",
-      bgColor: "bg-amber-50",
+      color: "text-primary",
+      bgColor: "bg-primary/10",
       reports: [
         { id: "inventory_current", name: "Inventario Actual", description: "Estado actual del inventario" },
         { id: "inventory_low_stock", name: "Productos con Bajo Stock", description: "Alertas de stock mínimo" },
@@ -108,8 +108,8 @@ export function ReportsModule() {
       id: "clients",
       title: "Reportes de Clientes",
       icon: UserCircle,
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
+      color: "text-primary",
+      bgColor: "bg-primary/10",
       reports: [
         { id: "clients_list", name: "Lista de Clientes", description: "Directorio completo de clientes" },
         { id: "clients_debt", name: "Cuentas por Cobrar", description: "Deuda de clientes" },
@@ -121,8 +121,8 @@ export function ReportsModule() {
       id: "suppliers",
       title: "Reportes de Proveedores",
       icon: Building2,
-      color: "text-indigo-600",
-      bgColor: "bg-indigo-50",
+      color: "text-primary",
+      bgColor: "bg-primary/10",
       reports: [
         { id: "suppliers_list", name: "Lista de Proveedores", description: "Directorio completo" },
         { id: "suppliers_purchases", name: "Compras por Proveedor", description: "Análisis de compras" },
@@ -134,8 +134,8 @@ export function ReportsModule() {
       id: "users",
       title: "Reportes de Usuarios",
       icon: Users,
-      color: "text-pink-600",
-      bgColor: "bg-pink-50",
+      color: "text-primary",
+      bgColor: "bg-primary/10",
       reports: [
         { id: "users_list", name: "Lista de Usuarios", description: "Usuarios del sistema" },
         { id: "users_activity", name: "Actividad de Usuarios", description: "Log de actividades" },
@@ -232,8 +232,8 @@ export function ReportsModule() {
                     <CardTitle className="text-sm font-medium text-muted-foreground">
                       Ventas Totales
                     </CardTitle>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
-                      <DollarSign className="h-5 w-5 text-emerald-600" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm">
+                      <DollarSign className="h-5 w-5 text-primary-foreground" />
                     </div>
                   </div>
                 </CardHeader>
@@ -244,9 +244,9 @@ export function ReportsModule() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     Bs {dashboardStats.totalSalesBs.toLocaleString()}
                   </p>
-                  <div className="mt-3 flex items-center gap-1 text-emerald-600">
+                  <div className="mt-3 flex items-center gap-1 text-primary">
                     <TrendingUp className="h-4 w-4" />
-                    <span className="text-sm font-semibold">+{dashboardStats.salesGrowth}%</span>
+                    <span className="text-sm font-black">+{dashboardStats.salesGrowth}%</span>
                   </div>
                 </CardContent>
               </Card>
@@ -257,8 +257,8 @@ export function ReportsModule() {
                     <CardTitle className="text-sm font-medium text-muted-foreground">
                       Compras Totales
                     </CardTitle>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50">
-                      <Truck className="h-5 w-5 text-blue-600" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm">
+                      <Truck className="h-5 w-5 text-primary-foreground" />
                     </div>
                   </div>
                 </CardHeader>
@@ -282,8 +282,8 @@ export function ReportsModule() {
                     <CardTitle className="text-sm font-medium text-muted-foreground">
                       Valor Inventario
                     </CardTitle>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
-                      <Package className="h-5 w-5 text-amber-600" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm">
+                      <Package className="h-5 w-5 text-primary-foreground" />
                     </div>
                   </div>
                 </CardHeader>
@@ -306,8 +306,8 @@ export function ReportsModule() {
                     <CardTitle className="text-sm font-medium text-muted-foreground">
                       Clientes Activos
                     </CardTitle>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50">
-                      <Users className="h-5 w-5 text-purple-600" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm">
+                      <Users className="h-5 w-5 text-primary-foreground" />
                     </div>
                   </div>
                 </CardHeader>
@@ -338,7 +338,7 @@ export function ReportsModule() {
                   {topProducts.map((product, index) => (
                     <div key={index} className="flex items-center justify-between border-b border-border pb-3 last:border-0">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-black text-primary-foreground shadow-sm">
                           {index + 1}
                         </div>
                         <div>
@@ -400,8 +400,8 @@ export function ReportsModule() {
                       </span>
                     </div>
                     <div className="flex justify-between border-t border-border pt-3">
-                      <span className="font-semibold text-foreground">Utilidad:</span>
-                      <span className="text-lg font-bold text-primary">
+                      <span className="font-bold text-foreground">Utilidad Estimada:</span>
+                      <span className="text-xl font-black text-primary">
                         ${(dashboardStats.totalSales - dashboardStats.totalPurchases).toLocaleString()}
                       </span>
                     </div>

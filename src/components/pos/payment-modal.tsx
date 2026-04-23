@@ -176,13 +176,13 @@ export function PaymentModal({
           <DialogTitle className="text-2xl font-bold text-foreground">
             Totalizador de Pagos
           </DialogTitle>
-          <div className="flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
-            <span className="text-sm font-medium text-foreground">Total a Pagar:</span>
+          <div className="flex items-center justify-between rounded-xl bg-primary px-6 py-4 shadow-lg border border-primary/20">
+            <span className="text-sm font-black uppercase tracking-wider text-primary-foreground opacity-90">Total a Pagar:</span>
             <div className="text-right">
-              <p className="text-3xl font-bold text-primary">
+              <p className="text-4xl font-black text-primary-foreground leading-tight">
                 ${totalAmount.toFixed(2)}
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs font-bold text-primary-foreground/80 mt-1 uppercase">
                 Bs {totalAmountBs.toFixed(2)}
               </p>
             </div>
@@ -256,10 +256,10 @@ export function PaymentModal({
             <span
               className={`font-mono text-lg font-bold ${
                 isComplete
-                  ? "text-emerald-600"
+                  ? "text-primary"
                   : hasOverpayment
-                    ? "text-orange-600"
-                    : "text-red-600"
+                    ? "text-amber-600"
+                    : "text-destructive"
               }`}
             >
               ${Math.abs(remaining).toFixed(2)}
@@ -270,30 +270,30 @@ export function PaymentModal({
           <div
             className={`flex items-center gap-3 rounded-xl px-4 py-3 ${
               isComplete
-                ? "bg-emerald-50 border border-emerald-200"
+                ? "bg-primary/10 border border-primary/20"
                 : hasOverpayment
-                  ? "bg-orange-50 border border-orange-200"
-                  : "bg-red-50 border border-red-200"
+                  ? "bg-amber-50 border border-amber-200"
+                  : "bg-destructive/10 border border-destructive/20"
             }`}
           >
             {isComplete ? (
               <>
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                <span className="text-sm font-semibold text-emerald-700">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <span className="text-sm font-bold text-primary">
                   Pago completo. Listo para procesar.
                 </span>
               </>
             ) : hasOverpayment ? (
               <>
-                <AlertCircle className="h-5 w-5 text-orange-600" />
-                <span className="text-sm font-semibold text-orange-700">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+                <span className="text-sm font-bold text-amber-700">
                   Sobrepago de ${Math.abs(remaining).toFixed(2)}. Debe dar vuelto.
                 </span>
               </>
             ) : (
               <>
-                <AlertCircle className="h-5 w-5 text-red-600" />
-                <span className="text-sm font-semibold text-red-700">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                <span className="text-sm font-bold text-destructive">
                   Faltan ${Math.abs(remaining).toFixed(2)} por pagar.
                 </span>
               </>
@@ -327,7 +327,7 @@ export function PaymentModal({
           <Button
             onClick={handleProcessSale}
             disabled={!isComplete && !hasOverpayment}
-            className="bg-emerald-600 px-8 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="bg-primary px-8 font-black uppercase text-primary-foreground hover:bg-primary/90 disabled:opacity-50 shadow-lg"
           >
             Procesar Venta
           </Button>

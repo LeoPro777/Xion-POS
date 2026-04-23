@@ -189,16 +189,16 @@ export function ClientsModule() {
 
           <Card className="border-border/50 shadow-sm transition-all hover:shadow-md">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-muted-foreground"><UserPlus className="w-5 h-5 text-emerald-500"/> Clientes Activos</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-muted-foreground"><UserPlus className="w-5 h-5 text-primary"/> Clientes Activos</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-emerald-600">{activeClients}</p>
+              <p className="text-3xl font-bold text-primary">{activeClients}</p>
             </CardContent>
           </Card>
 
           <Card className="border-border/50 shadow-sm transition-all hover:shadow-md">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-muted-foreground"><DollarSign className="w-5 h-5 text-amber-500" /> Deuda Total</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-muted-foreground"><DollarSign className="w-5 h-5 text-primary" /> Deuda Total</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-primary">${totalDebt.toFixed(2)}</p>
@@ -252,8 +252,8 @@ export function ClientsModule() {
                 <TableRow key={client.id} className="border-border hover:bg-muted/50 transition-colors">
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                        <UserCircle className="h-6 w-6 text-primary" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm">
+                        <UserCircle className="h-6 w-6 text-primary-foreground" />
                       </div>
                       <div>
                         <p className="font-semibold text-foreground">{client.name}</p>
@@ -282,7 +282,7 @@ export function ClientsModule() {
                     ${client.credit_limit.toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <span className={`font-bold ${client.current_debt > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                    <span className={`font-black ${client.current_debt > 0 ? "text-destructive" : "text-primary"}`}>
                       ${client.current_debt.toFixed(2)}
                     </span>
                   </TableCell>

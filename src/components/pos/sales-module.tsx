@@ -238,11 +238,14 @@ export function SalesModule() {
               >
                 <div className="absolute top-1.5 left-1.5 z-10">
                   {product.product_type === "service" ? (
-                    <span className="px-1.5 py-0.5 text-[9px] font-black font-mono tracking-tighter bg-blue-600 text-white rounded shadow-sm border border-blue-500/50">
+                    <span className="px-2 py-0.5 text-[10px] font-black font-mono tracking-tighter bg-primary text-primary-foreground rounded shadow-sm border-0 uppercase">
                       SERV
                     </span>
                   ) : (
-                    <span className="px-1.5 py-0.5 text-[10px] font-black font-mono tracking-tighter bg-foreground/90 text-background rounded shadow-sm border border-foreground/50">
+                    <span className={cn(
+                      "px-2 py-0.5 text-[10px] font-black font-mono tracking-tighter rounded shadow-sm border-0",
+                      product.cached_stock_quantity <= 0 ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"
+                    )}>
                       {product.cached_stock_quantity}
                     </span>
                   )}
@@ -250,7 +253,7 @@ export function SalesModule() {
 
                 <div className="flex-1 bg-muted/20 w-full flex items-center justify-center relative border-b border-border/40">
                    <div className="text-4xl opacity-10 group-hover:scale-110 transition-transform duration-300">🛒</div>
-                   <div className="absolute bottom-1.5 right-1.5 bg-background/90 backdrop-blur-sm text-foreground text-[11px] font-black px-2 py-0.5 rounded-md shadow-sm border border-border/50">
+                   <div className="absolute bottom-1.5 right-1.5 bg-primary text-primary-foreground text-[11px] font-black px-2.5 py-1 rounded-md shadow-md border-0">
                       ${formatLocalNumber(product.price_usd)}
                    </div>
                 </div>
@@ -260,7 +263,7 @@ export function SalesModule() {
                       {product.name}
                    </h3>
                    <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border/30">
-                      <p className="text-[12px] font-black text-emerald-600 font-mono tracking-tight">
+                      <p className="text-[12px] font-black text-primary font-mono tracking-tight">
                          <span className="text-[8px] opacity-70 mr-0.5">BS</span>
                          {formatLocalNumber(product.price_usd * exchangeRate)}
                       </p>
@@ -286,16 +289,16 @@ export function SalesModule() {
               </p>
             </div>
             <div className="flex items-center gap-1.5">
-              <Button variant="outline" size="sm" onClick={() => setShowHoldModal(true)} className="h-7 text-[10px] relative border-amber-500/30 bg-amber-500/5 text-amber-700 font-black px-2 py-0">
+              <Button variant="outline" size="sm" onClick={() => setShowHoldModal(true)} className="h-7 text-[10px] relative border-primary/30 bg-primary/5 text-primary font-black px-2 py-0">
                 <PauseCircle className="h-3 w-3 mr-1" />
                 ESPERA
                 {heldSales.length > 0 && (
-                   <Badge className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full p-0 flex items-center justify-center bg-amber-500 text-[8px] border border-background">
+                   <Badge className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full p-0 flex items-center justify-center bg-primary text-primary-foreground text-[8px] border border-background">
                      {heldSales.length}
                    </Badge>
                 )}
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:bg-amber-500/10" onClick={handleHoldSale}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:bg-primary/10" onClick={handleHoldSale}>
                 <Archive className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -432,14 +435,14 @@ export function SalesModule() {
             <div className="flex items-end justify-between pt-1">
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-foreground tracking-tighter leading-none">TOTAL USD</span>
-                <p className="text-3xl font-black text-emerald-600 leading-none mt-1">
+                <p className="text-3xl font-black text-primary leading-none mt-1">
                   ${formatLocalNumber(total)}
                 </p>
               </div>
               <div className="text-right flex flex-col items-end">
                 <p className="text-[9px] font-black text-muted-foreground tracking-tighter opacity-70 mb-1">MONEDA LOCAL</p>
-                <p className="text-base font-black text-foreground bg-secondary/30 px-2.5 py-0.5 rounded border-2 border-border/10">
-                  <span className="text-[10px] mr-1 opacity-60">BS</span> 
+                <p className="text-base font-black text-primary-foreground bg-primary px-3 py-1 rounded shadow-sm border-0">
+                  <span className="text-[10px] mr-1 opacity-80">BS</span> 
                   {formatLocalNumber(totalBs)}
                 </p>
               </div>
@@ -458,7 +461,7 @@ export function SalesModule() {
           <Button
             disabled={cart.length === 0 || (config && !config.is_cash_session_open)}
             onClick={() => setShowPaymentModal(true)}
-            className="h-10 w-full gap-2 rounded-xl bg-emerald-600 text-base font-black text-white hover:bg-emerald-700 shadow-lg mt-0 disabled:bg-slate-500"
+            className="h-10 w-full gap-2 rounded-xl bg-primary text-base font-black text-primary-foreground hover:bg-primary/90 shadow-lg mt-0 disabled:bg-slate-500"
           >
             {config && !config.is_cash_session_open ? (
                <>
@@ -538,9 +541,9 @@ export function SalesModule() {
 
       <Dialog open={showHoldModal} onOpenChange={setShowHoldModal}>
         <DialogContent className="max-w-[500px] p-0 overflow-hidden shadow-2xl rounded-2xl border-0">
-           <DialogHeader className="p-5 bg-amber-500/10 border-b border-amber-500/20">
-             <DialogTitle className="text-lg font-black text-amber-900 flex items-center gap-2">
-               <PauseCircle className="h-5 w-5 text-amber-600" />
+           <DialogHeader className="p-5 bg-primary/10 border-b border-primary/20">
+             <DialogTitle className="text-lg font-black text-foreground flex items-center gap-2">
+               <PauseCircle className="h-5 w-5 text-primary" />
                Ventas en Espera ({heldSales.length})
              </DialogTitle>
            </DialogHeader>
@@ -555,13 +558,13 @@ export function SalesModule() {
                   {heldSales.map(hold => {
                     const heldTotal = hold.cart.reduce((s, i) => s + (i.price_usd * i.cart_quantity), 0)
                     return (
-                      <div key={hold.id} className="flex items-center justify-between p-3 rounded-xl border-2 border-border/50 bg-background hover:border-amber-500/50 transition-colors group shadow-sm">
+                      <div key={hold.id} className="flex items-center justify-between p-3 rounded-xl border-2 border-border/50 bg-background hover:border-primary/50 transition-colors group shadow-sm">
                          <div>
                             <p className="font-bold text-sm text-foreground">{hold.name}</p>
                             <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-medium mt-1">
                                <span className="flex items-center gap-1"><Clock className="w-3 h-3"/> {hold.timestamp.toLocaleTimeString("es-VE", {hour: '2-digit', minute:'2-digit'})}</span>
                                <span>Items: {hold.cart.reduce((s, i) => s + i.cart_quantity, 0)}</span>
-                               <span className="font-bold text-amber-600/80">${formatLocalNumber(heldTotal)}</span>
+                               <span className="font-bold text-primary/80">${formatLocalNumber(heldTotal)}</span>
                             </div>
                          </div>
                          <div className="flex gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">

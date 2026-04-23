@@ -207,11 +207,11 @@ export function SuppliersModule() {
           <Card className="border-border/50 shadow-sm transition-all hover:shadow-md">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-emerald-500" /> Proveedores Activos
+                <Building2 className="h-5 w-5 text-primary" /> Proveedores Activos
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-emerald-600">
+              <p className="text-3xl font-bold text-primary">
                 {activeSuppliers}
               </p>
             </CardContent>
@@ -267,8 +267,8 @@ export function SuppliersModule() {
                 <TableRow key={supplier.id} className="border-border hover:bg-muted/50 transition-colors">
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
-                        <Building2 className="h-5 w-5 text-primary" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm ring-1 ring-primary/20">
+                        <Building2 className="h-5 w-5 text-primary-foreground" />
                       </div>
                       <div>
                         <p className="font-semibold text-foreground">
@@ -298,7 +298,7 @@ export function SuppliersModule() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge className="bg-primary/10 text-primary border-0 hover:bg-primary/20">
+                    <Badge className="bg-primary text-primary-foreground border-0 shadow-sm font-bold">
                       {supplier.category}
                     </Badge>
                   </TableCell>

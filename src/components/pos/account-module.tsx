@@ -3,13 +3,16 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Server, Monitor, ShieldCheck, Download, Users, Zap, CheckCircle2 } from "lucide-react"
+import { Server, Monitor, ShieldCheck, Download, Users, Zap, CheckCircle2, RefreshCw } from "lucide-react"
+import { useAutoUpdater } from "@/hooks/use-auto-updater"
 
 export function AccountModule() {
   const devices = [
     { id: "PC-CAJA-01", name: "Caja Principal", status: "Activo", type: "Terminal Punto de Venta" },
     { id: "PC-GERENCIA", name: "Laptop Gerencia", status: "Inactivo", type: "Administración" }
   ]
+
+  const { updateState, progress, version, checkUpdate, installUpdate } = useAutoUpdater()
 
   return (
     <div className="flex-1 overflow-auto bg-background/50 p-8">
@@ -109,6 +112,61 @@ export function AccountModule() {
                   </div>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* System Updates */}
+        <Card className="col-span-full border-border/50 shadow-md">
+          <CardHeader>
+            <CardTitle className="text-xl">Actualizaciones del Sistema</CardTitle>
+            <CardDescription>Mantén tu sistema al día con las últimas mejoras y parches de seguridad.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col md:flex-row items-center justify-between p-4 rounded-lg border border-border/50 bg-card">
+              <div className="flex items-center gap-4 mb-4 md:mb-0">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Download className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-bold text-foreground">
+                    Xion POS 
+                    {version && <span className="ml-2 text-primary font-mono text-xs">v{version}</span>}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {updateState === 'idle' && "El sistema está actualizado o pendiente de revisión."}
+                    {updateState === 'checking' && "Buscando actualizaciones..."}
+                    {updateState === 'available' && "Nueva versión disponible."}
+                    {updateState === 'downloading' && `Descargando actualización: ${Math.round(progress)}%`}
+                    {updateState === 'ready' && "Actualización lista para instalar."}
+                    {updateState === 'error' && "Error al buscar o descargar actualización."}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+                {updateState === 'downloading' && (
+                  <div className="w-full md:w-48 h-2 rounded-full bg-secondary overflow-hidden">
+                    <div 
+                      className="h-full bg-primary transition-all duration-300" 
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  {(updateState === 'idle' || updateState === 'error') && (
+                    <Button onClick={checkUpdate} variant="outline" className="gap-2">
+                      <RefreshCw className="h-4 w-4" /> Buscar Actualización
+                    </Button>
+                  )}
+                  {updateState === 'ready' && (
+                    <Button onClick={installUpdate} className="gap-2">
+                      <Download className="h-4 w-4" /> Instalar y Reiniciar
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -4,6 +4,8 @@ import { DashboardScreen } from '@/components/pos/dashboard-screen';
 import { LoginScreen } from '@/components/pos/login-screen';
 import { apiClient } from '@/lib/api';
 import { useSystemStatus } from '@/hooks/queries/use-system';
+import { Toaster } from '@/components/ui/toaster';
+import { useToast } from '@/hooks/use-toast';
 
 type BootState = 'checking' | 'ready' | 'failed';
 
@@ -13,6 +15,7 @@ export default function App() {
   
   // Seguridad activada: falso por defecto, requiere login
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const { toast } = useToast();
 
   const { data: config } = useSystemStatus();
 
@@ -46,9 +49,28 @@ export default function App() {
 
       // Primary Color
       if (config.primary_color) {
+        // Helper to determine contrasting text (black or white) based on hex
+        const hex = config.primary_color.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16) || 0;
+        const g = parseInt(hex.substring(2, 4), 16) || 0;
+        const b = parseInt(hex.substring(4, 6), 16) || 0;
+        const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+        const fgColor = (yiq >= 128) ? '#0F172A' : '#FFFFFF';
+
         // Override both the internal Tailwind token and standard variables
         cssLines.push(`  --color-primary: ${config.primary_color} !important;`);
         cssLines.push(`  --primary: ${config.primary_color} !important;`);
+        // Ensure contrast and integration across the UI
+        cssLines.push(`  --color-primary-foreground: ${fgColor} !important;`);
+        cssLines.push(`  --primary-foreground: ${fgColor} !important;`);
+        cssLines.push(`  --color-ring: ${config.primary_color}80 !important;`);
+        cssLines.push(`  --ring: ${config.primary_color}80 !important;`);
+        cssLines.push(`  --color-sidebar-primary: ${config.primary_color} !important;`);
+        cssLines.push(`  --sidebar-primary: ${config.primary_color} !important;`);
+        cssLines.push(`  --color-sidebar-primary-foreground: ${fgColor} !important;`);
+        cssLines.push(`  --sidebar-primary-foreground: ${fgColor} !important;`);
+        cssLines.push(`  --color-sidebar-ring: ${config.primary_color}80 !important;`);
+        cssLines.push(`  --sidebar-ring: ${config.primary_color}80 !important;`);
       }
 
       // Interface Density (Radius)
@@ -143,12 +165,15 @@ export default function App() {
   }
 
   return (
-    <DashboardScreen 
-      onLogout={() => {
-        // En modo desarrollo puedes dejar esto vacío o que simplemente cambie el estado
-        console.log("Cerrando sesión...");
-        setIsAuthenticated(false); 
-      }} 
-    />
+    <>
+      <DashboardScreen 
+        onLogout={() => {
+          // En modo desarrollo puedes dejar esto vacío o que simplemente cambie el estado
+          console.log("Cerrando sesión...");
+          setIsAuthenticated(false); 
+        }} 
+      />
+      <Toaster />
+    </>
   );
 }
