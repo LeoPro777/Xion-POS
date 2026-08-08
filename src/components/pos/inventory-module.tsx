@@ -26,6 +26,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -43,9 +44,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
-import { Search, Plus, Edit, Trash2, Tag, Box, Layers, DollarSign, Info, ListChecks, ShoppingBag, FileSpreadsheet, Download, AlertCircle } from "lucide-react"
+import { Search, Plus, Edit, Trash2, Tag, Box, Layers, DollarSign, Info, ListChecks, ShoppingBag, FileSpreadsheet, Download, AlertCircle, TrendingDown } from "lucide-react"
 
 import { localApiClient } from "@/lib/api-client"
+import { useQueryClient, useMutation } from "@tanstack/react-query"
+import { cn } from "@/lib/utils"
 import {
   useProducts,
   useCreateProduct,
@@ -86,12 +89,34 @@ export function InventoryModule() {
   const [isImporting, setIsImporting] = useState(false)
   const [alertConfig, setAlertConfig] = useState<{title: string, description: string, errors: string[]} | null>(null)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [isShrinkageDialogOpen, setIsShrinkageDialogOpen] = useState(false)
+  const [shrinkageProduct, setShrinkageProduct] = useState<Product | null>(null)
+  const [shrinkageQuantity, setShrinkageQuantity] = useState("")
+  const [shrinkageReason, setShrinkageReason] = useState("Dañado/Vencido")
 
+  const queryClient = useQueryClient()
   const { data: products = [] } = useProducts()
   const { data: systemStatus } = useSystemStatus()
   const createMutation = useCreateProduct()
   const updateMutation = useUpdateProduct()
   const deleteMutation = useDeleteProduct()
+
+  const shrinkageMutation = useMutation({
+    mutationFn: async (data: { product_id: string; quantity: number; reason: string }) => {
+      const res = await localApiClient.post("/inventory/shrinkage", data)
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] })
+      toast.success("Merma registrada exitosamente")
+      setIsShrinkageDialogOpen(false)
+      setShrinkageQuantity("")
+      setShrinkageReason("Dañado/Vencido")
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Error al registrar la merma")
+    }
+  })
 
   const exchangeRate = systemStatus?.current_exchange_rate_bs || 1
 
@@ -375,6 +400,33 @@ export function InventoryModule() {
     }
   }
 
+  const handleOpenShrinkage = (product: Product) => {
+    setShrinkageProduct(product)
+    setShrinkageQuantity("")
+    setShrinkageReason("Dañado/Vencido")
+    setIsShrinkageDialogOpen(true)
+  }
+
+  const handleRegisterShrinkage = () => {
+    const qty = parseFloat(shrinkageQuantity)
+    if (isNaN(qty) || qty <= 0) {
+      toast.error("Ingrese una cantidad válida")
+      return
+    }
+    if (!shrinkageProduct) return
+
+    if (qty > shrinkageProduct.cached_stock_quantity) {
+       toast.error("La merma no puede ser mayor al stock actual")
+       return
+    }
+
+    shrinkageMutation.mutate({
+      product_id: shrinkageProduct.id,
+      quantity: qty,
+      reason: shrinkageReason
+    })
+  }
+
   return (
     <div className="flex h-full flex-col gap-6 p-6 bg-background/50">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -450,10 +502,30 @@ export function InventoryModule() {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      {product.product_type === "service" ? <span className="text-xs text-muted-foreground">∞ Ilimitado</span> : <Badge className={`${isLowStock ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"} font-black shadow-sm border-0 px-3`}>{product.cached_stock_quantity} {product.unit_measure}</Badge>}
+                      {product.product_type === "service" ? (
+                        <span className="text-xs text-muted-foreground">∞ Ilimitado</span>
+                      ) : (
+                        <Badge 
+                          className={cn(
+                            "font-black shadow-sm px-3",
+                            product.cached_stock_quantity === 0 
+                              ? "bg-transparent border-2 border-foreground text-foreground shadow-none" 
+                              : isLowStock 
+                                ? "bg-destructive text-destructive-foreground border-0" 
+                                : "bg-primary text-primary-foreground border-0"
+                          )}
+                        >
+                          {product.cached_stock_quantity} {product.unit_measure}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-right pr-4">
                       <div className="flex justify-end gap-1">
+                        {product.product_type !== 'service' && (
+                          <Button variant="ghost" size="icon" title="Registrar Merma" onClick={() => handleOpenShrinkage(product)} className="hover:bg-amber-100 hover:text-amber-600">
+                            <TrendingDown className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(product)} className="hover:bg-primary/10 hover:text-primary"><Edit className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="hover:bg-destructive/10 text-destructive" onClick={() => handleDelete(product.id)}><Trash2 className="h-4 w-4" /></Button>
                       </div>
@@ -715,7 +787,16 @@ export function InventoryModule() {
                       <div className="text-sm font-medium opacity-70 uppercase tracking-wider">
                         {isVirtual ? "STOCK PROYECTADO" : "STOCK ACTUAL"}
                       </div>
-                      <Badge className={cn("text-xl font-black font-mono px-4 py-1 border-0 shadow-sm", (editingProduct?.cached_stock_quantity || 0) <= (editingProduct?.min_stock_alert || 0) ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground")}>
+                      <Badge 
+                        className={cn(
+                          "text-xl font-black font-mono px-4 py-1 shadow-sm",
+                          (isVirtual ? projectedComboStock : (editingProduct?.cached_stock_quantity || 0)) === 0
+                            ? "bg-transparent border-2 border-foreground text-foreground shadow-none"
+                            : (editingProduct?.cached_stock_quantity || 0) <= (editingProduct?.min_stock_alert || 0)
+                              ? "bg-destructive text-destructive-foreground border-0"
+                              : "bg-primary text-primary-foreground border-0"
+                        )}
+                      >
                         {isVirtual ? projectedComboStock : editingProduct?.cached_stock_quantity} {form.watch("unit_measure")}
                       </Badge>
                     </div>
@@ -762,6 +843,67 @@ export function InventoryModule() {
                 </div>
             </div>
          </DialogContent>
+      </Dialog>
+
+      {/* Shrinkage Modal */}
+      <Dialog open={isShrinkageDialogOpen} onOpenChange={setIsShrinkageDialogOpen}>
+        <DialogContent className="sm:max-w-md shadow-2xl rounded-2xl border-0">
+          <DialogHeader className="p-6 bg-amber-50 border-b border-amber-200">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-amber-700">
+              <TrendingDown className="h-6 w-6"/> Registrar Merma
+            </DialogTitle>
+            <DialogDescription className="text-amber-900/70">
+              Descontar inventario por pérdida, daño o vencimiento.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-4 bg-background">
+            {shrinkageProduct && (
+              <div className="p-3 bg-muted rounded-lg border flex justify-between items-center">
+                <div>
+                  <p className="font-bold text-foreground">{shrinkageProduct.name}</p>
+                  <p className="text-xs text-muted-foreground">{shrinkageProduct.sku}</p>
+                </div>
+                <Badge className="bg-primary text-primary-foreground font-black text-sm">
+                  Stock: {shrinkageProduct.cached_stock_quantity}
+                </Badge>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label>Cantidad a dar de baja</Label>
+              <Input 
+                type="number" 
+                step="0.01" 
+                value={shrinkageQuantity} 
+                onChange={e => setShrinkageQuantity(e.target.value)} 
+                placeholder="Ej. 1" 
+                className="font-bold text-lg"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Motivo / Observación</Label>
+              <Select value={shrinkageReason} onValueChange={setShrinkageReason}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione un motivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Dañado/Vencido">Dañado o Vencido</SelectItem>
+                  <SelectItem value="Extraviado">Extraviado / Perdido</SelectItem>
+                  <SelectItem value="Uso Interno">Uso Interno</SelectItem>
+                  <SelectItem value="Defecto de Fábrica">Defecto de Fábrica</SelectItem>
+                  <SelectItem value="Otro">Otro (Especificar en notas)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="p-4 bg-muted/30 border-t flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setIsShrinkageDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleRegisterShrinkage} disabled={shrinkageMutation.isPending} className="bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-md">
+              Confirmar Merma
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       <AlertDialog open={!!alertConfig} onOpenChange={(open) => !open && setAlertConfig(null)}>

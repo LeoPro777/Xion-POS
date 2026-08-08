@@ -129,6 +129,24 @@ def download_report_data(
     elif report_id == "inventory_current":
         prods = session.exec(select(Product)).all()
         return [{"sku": p.sku, "nombre": p.name, "stock": p.cached_stock_quantity, "precio_usd": p.price_usd, "costo_usd": p.cost_usd} for p in prods]
+
+    elif report_id == "inventory_shrinkage":
+        from local_backend.core.models import InventoryShrinkage
+        shrinkages = session.exec(
+            select(InventoryShrinkage)
+            .where(InventoryShrinkage.created_at >= start_date)
+            .order_by(InventoryShrinkage.created_at.desc())
+        ).all()
+        return [
+            {
+                "fecha": s.created_at.isoformat(),
+                "producto": s.product_name,
+                "cantidad": s.quantity,
+                "perdida_usd": s.cost_loss_usd,
+                "motivo": s.reason,
+                "registrado_por": s.user_id or "Sistema"
+            } for s in shrinkages
+        ]
         
     elif report_id == "clients_list":
         clients = session.exec(select(Client)).all()
@@ -144,6 +162,44 @@ def download_report_data(
         )
         res = session.exec(stmt).all()
         return [{"cajero": row[0], "total_recaudado_usd": row[1]} for row in res]
+        
+    elif report_id == "cash_history":
+        sessions = session.exec(
+            select(CashSession)
+            .where(CashSession.created_at >= start_date)
+            .order_by(CashSession.created_at.desc())
+        ).all()
+        return [
+            {
+                "id_sesion": s.id,
+                "estado": s.status,
+                "cajero": s.user_name,
+                "fecha_apertura": s.opening_time.isoformat() if s.opening_time else "",
+                "fecha_cierre": s.closing_time.isoformat() if s.closing_time else "En curso",
+                "fondo_apertura_usd": s.opening_balance_usd,
+                "fondo_cierre_usd": s.closing_balance_usd,
+                "total_ventas_usd": s.total_sales_usd,
+                "total_impuestos_usd": s.total_tax_usd
+            } for s in sessions
+        ]
+        
+    elif report_id == "cash_summary":
+        sessions = session.exec(select(CashSession).where(CashSession.created_at >= start_date)).all()
+        
+        total_aperturas = sum(s.opening_balance_usd for s in sessions)
+        total_ventas = sum(s.total_sales_usd for s in sessions)
+        total_impuestos = sum(s.total_tax_usd for s in sessions)
+        sesiones_abiertas = sum(1 for s in sessions if s.status == "open")
+        sesiones_cerradas = sum(1 for s in sessions if s.status == "closed")
+        
+        return [
+            {"metrica": "Total Sesiones Evaluadas", "valor": len(sessions)},
+            {"metrica": "Sesiones Abiertas (En curso)", "valor": sesiones_abiertas},
+            {"metrica": "Sesiones Cerradas", "valor": sesiones_cerradas},
+            {"metrica": "Total Fondos de Apertura (USD)", "valor": round(total_aperturas, 2)},
+            {"metrica": "Total Ventas Registradas en Caja (USD)", "valor": round(total_ventas, 2)},
+            {"metrica": "Total Impuestos en Caja (USD)", "valor": round(total_impuestos, 2)}
+        ]
         
     else:
         # Default o no soportado

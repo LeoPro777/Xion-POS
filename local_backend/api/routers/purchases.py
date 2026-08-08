@@ -16,6 +16,7 @@ class PurchaseItemDTO(BaseModel):
     total_cost_usd: float
 
 class PurchaseCreateDTO(BaseModel):
+    supplier_id: Optional[str] = None
     supplier_name: str
     total_amount_usd: float
     total_amount_bs: float
@@ -30,6 +31,7 @@ def register_purchase(payload: PurchaseCreateDTO, session: Session = Depends(get
         # Create Purchase
         new_purchase = Purchase(
             id=str(uuid4()),
+            supplier_id=payload.supplier_id,
             supplier_name=payload.supplier_name,
             total_amount_usd=payload.total_amount_usd,
             total_amount_bs=payload.total_amount_bs,
@@ -58,8 +60,18 @@ def register_purchase(payload: PurchaseCreateDTO, session: Session = Depends(get
             current_stock = product.cached_stock_quantity if product.cached_stock_quantity is not None else 0.0
             product.cached_stock_quantity = current_stock + item.quantity
             product.cost_usd = item.unit_cost_usd # Update to latest cost
-            
             product.is_synced = False
+            
+            from local_backend.core.models import InventoryTransaction
+            kardex = InventoryTransaction(
+                id=str(uuid4()),
+                product_id=product.id,
+                transaction_type="IN",
+                reason="PURCHASE",
+                quantity=item.quantity,
+                reference_id=new_purchase.id,
+            )
+            session.add(kardex)
             session.add(product)
 
         session.commit()

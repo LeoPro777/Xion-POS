@@ -137,6 +137,7 @@ class Supplier(SQLModel, table=True):
 
 class Purchase(SQLModel, table=True):
     id: Optional[str] = Field(default=None, primary_key=True, index=True)
+    supplier_id: Optional[str] = Field(default=None, foreign_key="supplier.id", index=True)
     supplier_name: str = Field(nullable=False)
     total_amount_usd: float = Field(default=0.0)
     total_amount_bs: float = Field(default=0.0)
@@ -165,6 +166,7 @@ class Sale(SQLModel, table=True):
     total_amount_bs: float = Field(default=0.0)
     exchange_rate: float = Field(default=36.5, nullable=False)
     cash_session_id: Optional[str] = Field(default=None, foreign_key="cash_sessions.id", index=True)
+    status: str = Field(default="completed", nullable=False) # 'completed', 'refunded'
     is_synced: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -230,3 +232,33 @@ class SaleItem(SQLModel, table=True):
     unit_price_usd: float = Field(default=0.0)
     tax_amount_usd: float = Field(default=0.0)
     total_price_usd: float = Field(default=0.0)
+
+class InventoryShrinkage(SQLModel, table=True):
+    """
+    Registro de mermas de inventario (productos dañados, vencidos, perdidos).
+    Afecta el stock negativo y se registra financieramente como pérdida.
+    """
+    id: Optional[str] = Field(default=None, primary_key=True, index=True)
+    product_id: str = Field(nullable=False, foreign_key="product.id", index=True)
+    product_name: str = Field(nullable=False)
+    quantity: float = Field(nullable=False) # Cantidad descontada
+    cost_loss_usd: float = Field(default=0.0) # quantity * cost_usd al momento de la merma
+    reason: str = Field(default="No especificado")
+    user_id: Optional[str] = Field(default=None, index=True) # Cajero/Admin que registró
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class InventoryTransaction(SQLModel, table=True):
+    """
+    Kardex / Ledger de Inventario.
+    Registra TODO movimiento: IN (Compras, Ajustes), OUT (Ventas, Mermas, Devoluciones a proveedor)
+    """
+    __tablename__: str = "inventory_transactions"
+    id: Optional[str] = Field(default=None, primary_key=True, index=True)
+    product_id: str = Field(nullable=False, foreign_key="product.id", index=True)
+    transaction_type: str = Field(nullable=False) # "IN" o "OUT"
+    reason: str = Field(nullable=False) # "SALE", "PURCHASE", "SHRINKAGE", "REFUND", "MANUAL_ADJUSTMENT"
+    quantity: float = Field(nullable=False) # Cantidad absoluta
+    reference_id: Optional[str] = Field(default=None, index=True) # ID de Sale, Purchase o Shrinkage
+    user_id: Optional[str] = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+

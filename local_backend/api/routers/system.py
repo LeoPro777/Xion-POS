@@ -1,11 +1,12 @@
+import json
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 
 from local_backend.core.database import get_session, get_system_config
-from local_backend.core.models import SystemConfig, CashSession
+from local_backend.core.models import SystemConfig, CashSession, SalePayment
 
 router = APIRouter(prefix="/system", tags=["System"])
 
@@ -114,6 +115,35 @@ def update_system_config(
 ) -> Dict[str, Any]:
     try:
         config = get_system_config(session)
+        
+        # Validación de eliminación de métodos de pago
+        if body.payment_methods_json is not None:
+            old_methods = json.loads(config.payment_methods_json or "[]")
+            new_methods = json.loads(body.payment_methods_json)
+            
+            old_ids = {m["id"] for m in old_methods}
+            new_ids = {m["id"] for m in new_methods}
+            
+            removed_ids = old_ids - new_ids
+            
+            for rid in removed_ids:
+                # Verificar si el método tiene transacciones (suma > 0)
+                total_usage = session.exec(
+                    select(func.coalesce(func.sum(SalePayment.amount_usd), 0.0))
+                    .where(SalePayment.payment_method_id == rid)
+                ).one()
+                
+                # Usamos un pequeño margen de error para flotantes (0.01 USD)
+                if total_usage > 0.01:
+                    label = next((m["label"] for m in old_methods if m["id"] == rid), rid)
+                    print(f"DEBUG: Intento de eliminar '{label}' (ID: {rid}) con balance: {total_usage}")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"No se puede eliminar '{label}': El método tiene un balance acumulado de ${total_usage:.2f}. Primero debe estar en 0."
+                    )
+                else:
+                    print(f"DEBUG: Eliminación permitida para ID: {rid} (Balance: {total_usage})")
+
         update_data = body.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(config, key, value)
@@ -126,5 +156,7 @@ def update_system_config(
             "status": "updated",
             "detail": "System configuration updated successfully."
         }
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to update system config: {str(exc)}")

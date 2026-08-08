@@ -207,3 +207,67 @@ def set_combo_components(combo_id: str, components: List[ProductComboComponent],
     session.commit()
     updated = session.exec(select(ProductComposition).where(ProductComposition.parent_id == combo_id)).all()
     return updated
+
+class ShrinkageCreate(SQLModel):
+    product_id: str
+    quantity: float = Field(gt=0)
+    reason: str = "No especificado"
+    user_id: Optional[str] = None
+
+from local_backend.core.models import InventoryShrinkage
+
+@router.post("/shrinkage", status_code=status.HTTP_201_CREATED)
+def register_shrinkage(payload: ShrinkageCreate, session: Session = Depends(get_session)):
+    product = session.get(Product, payload.product_id)
+    if not product or product.is_deleted:
+        raise ProductNotFoundError(payload.product_id)
+        
+    if product.product_type == ProductType.SERVICE:
+        raise HTTPException(status_code=400, detail="Los servicios no pueden tener mermas")
+        
+    # Descontar stock
+    product.cached_stock_quantity -= payload.quantity
+    product.is_synced = False
+    
+    # Calcular pérdida financiera
+    loss = product.cost_usd * payload.quantity
+    
+    from local_backend.core.models import InventoryShrinkage, InventoryTransaction
+    
+    shrinkage = InventoryShrinkage(
+        id=str(uuid4()),
+        product_id=product.id,
+        product_name=product.name,
+        quantity=payload.quantity,
+        cost_loss_usd=loss,
+        reason=payload.reason,
+        user_id=payload.user_id
+    )
+
+    kardex = InventoryTransaction(
+        id=str(uuid4()),
+        product_id=product.id,
+        transaction_type="OUT",
+        reason="SHRINKAGE",
+        quantity=payload.quantity,
+        reference_id=shrinkage.id,
+        user_id=payload.user_id
+    )
+    
+    session.add(product)
+    session.add(shrinkage)
+    session.add(kardex)
+    try:
+        session.commit()
+        session.refresh(shrinkage)
+        return shrinkage
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Transaction failed in local storage")
+
+@router.get("/shrinkage")
+def get_shrinkage_history(session: Session = Depends(get_session)):
+    statement = select(InventoryShrinkage).order_by(InventoryShrinkage.created_at.desc())
+    results = session.exec(statement).all()
+    return results
+

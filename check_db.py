@@ -1,16 +1,17 @@
 import sqlite3
-import os
-from pathlib import Path
 
-db_path = Path(r"c:\Users\Leo\Desktop\Xion\XionPOS\local_backend\data\xion_offline.db")
-if not db_path.exists():
-    print(f"Database not found at {db_path}")
-else:
-    conn = sqlite3.connect(str(db_path))
+def check_db():
+    conn = sqlite3.connect("database.db")
     cursor = conn.cursor()
-    cursor.execute("PRAGMA table_info(product)")
-    columns = cursor.fetchall()
-    print("Columns in 'product' table:")
-    for col in columns:
-        print(col[1])
-    conn.close()
+    cursor.execute("SELECT * FROM systemconfig")
+    print("Config:", cursor.fetchone())
+    
+    cursor.execute("SELECT status FROM cashsession ORDER BY created_at DESC LIMIT 1")
+    session = cursor.fetchone()
+    print("Last Cash Session:", session)
+
+if __name__ == "__main__":
+    try:
+        check_db()
+    except Exception as e:
+        print("Error:", e)

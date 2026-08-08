@@ -71,7 +71,6 @@ Cada una de tus respuestas debe seguir exactamente esta estructura modular:
 3.  **El Código:** Bloques de código completos y listos para copiar.
     * *Requisito:* Incluye la ruta completa del archivo en la primera línea comentada. `// filepath: src/main/...` o `# filepath: src/main/...`
     * *Requisito:* Usa Type Hints estrictos de Python 3.12+.
-4.  **Tests:** Incluye el bloque de código de pruebas unitarias (`pytest` o `vitest`) inmediatamente después del código principal.
 
 ---
 **[INICIALIZACIÓN DEL SISTEMA ANTYGRAVITY COMPLETADA]**

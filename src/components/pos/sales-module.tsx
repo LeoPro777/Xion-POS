@@ -243,8 +243,12 @@ export function SalesModule() {
                     </span>
                   ) : (
                     <span className={cn(
-                      "px-2 py-0.5 text-[10px] font-black font-mono tracking-tighter rounded shadow-sm border-0",
-                      product.cached_stock_quantity <= 0 ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"
+                      "px-2 py-0.5 text-[10px] font-black font-mono tracking-tighter rounded shadow-sm",
+                      product.cached_stock_quantity === 0 
+                        ? "bg-transparent border-2 border-foreground text-foreground shadow-none" 
+                        : product.cached_stock_quantity <= (product.min_stock_alert || 0)
+                          ? "bg-destructive text-destructive-foreground border-0" 
+                          : "bg-primary text-primary-foreground border-0"
                     )}>
                       {product.cached_stock_quantity}
                     </span>
@@ -459,7 +463,7 @@ export function SalesModule() {
             </Button>
           </div>
           <Button
-            disabled={cart.length === 0 || (config && !config.is_cash_session_open)}
+            disabled={cart.length === 0 || (config && !config.is_cash_session_open) || !selectedClient}
             onClick={() => setShowPaymentModal(true)}
             className="h-10 w-full gap-2 rounded-xl bg-primary text-base font-black text-primary-foreground hover:bg-primary/90 shadow-lg mt-0 disabled:bg-slate-500"
           >
@@ -467,6 +471,11 @@ export function SalesModule() {
                <>
                  <Lock className="h-4 w-4" />
                  ABRIR CAJA PRIMERO
+               </>
+            ) : !selectedClient && cart.length > 0 ? (
+               <>
+                 <User className="h-4 w-4" />
+                 SELECCIONE CLIENTE
                </>
             ) : (
                <>
@@ -489,8 +498,8 @@ export function SalesModule() {
         onConfirm={async (payments: SalePaymentDTO[]) => {
           try {
             const payload: SaleCreateDTO = {
-              client_id: selectedClient?.id || undefined, // undefined will be stripped by Axios, but we can send it or explicitly map
-              client_name: selectedClient ? selectedClient.name : "Cliente Final",
+              client_id: selectedClient!.id,
+              client_name: selectedClient!.name,
               subtotal_usd: subtotal,
               tax_amount_usd: tax,
               total_amount_usd: total,

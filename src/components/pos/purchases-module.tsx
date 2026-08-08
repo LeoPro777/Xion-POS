@@ -282,7 +282,14 @@ export function PurchasesModule() {
                   className="group relative cursor-pointer border-2 border-border/60 bg-background overflow-hidden rounded-lg hover:shadow-md hover:border-primary/50 flex flex-col h-[130px] transition-all"
                 >
                   <div className="absolute top-1 left-1 z-10">
-                    <span className="px-1.5 py-0.5 text-[9px] font-bold font-mono tracking-tighter bg-foreground/90 text-background rounded shadow-sm border border-foreground/50">
+                    <span className={cn(
+                      "px-1.5 py-0.5 text-[9px] font-bold font-mono tracking-tighter rounded shadow-sm",
+                      product.cached_stock_quantity === 0 
+                        ? "bg-transparent border-2 border-foreground text-foreground shadow-none" 
+                        : product.cached_stock_quantity <= (product.min_stock_alert || 0)
+                          ? "bg-destructive text-destructive-foreground border-0" 
+                          : "bg-foreground/90 text-background border border-foreground/50"
+                    )}>
                       STK: {product.cached_stock_quantity}
                     </span>
                   </div>

@@ -27,6 +27,8 @@ import {
   Building2,
   UserCircle,
   Truck,
+  Banknote,
+  FileText,
 } from "lucide-react"
 
 export function ReportsModule() {
@@ -102,6 +104,7 @@ export function ReportsModule() {
         { id: "inventory_low_stock", name: "Productos con Bajo Stock", description: "Alertas de stock mínimo" },
         { id: "inventory_movement", name: "Movimientos de Inventario", description: "Entradas y salidas" },
         { id: "inventory_valuation", name: "Valoración de Inventario", description: "Valor total del inventario" },
+        { id: "inventory_shrinkage", name: "Registro de Mermas", description: "Productos dañados o vencidos" },
       ],
     },
     {
@@ -141,6 +144,17 @@ export function ReportsModule() {
         { id: "users_activity", name: "Actividad de Usuarios", description: "Log de actividades" },
         { id: "users_sales", name: "Ventas por Usuario", description: "Desempeño de cajeros" },
         { id: "users_roles", name: "Usuarios por Rol", description: "Distribución de roles" },
+      ],
+    },
+    {
+      id: "cash",
+      title: "Reportes de Caja",
+      icon: Banknote,
+      color: "text-primary",
+      bgColor: "bg-primary/10",
+      reports: [
+        { id: "cash_history", name: "Historial de Turnos", description: "Listado de aperturas y cierres" },
+        { id: "cash_summary", name: "Resumen de Caja", description: "Totales agrupados" },
       ],
     },
   ]
@@ -188,6 +202,84 @@ export function ReportsModule() {
     } catch (error) {
       console.error("Error al descargar el reporte", error)
       alert("Hubo un error al generar el reporte.")
+    }
+  }
+
+  const downloadPDFReport = async (reportId: string, reportName: string) => {
+    try {
+      const { data } = await localApiClient.get(`/reports/download/${reportId}?period=${dateRange}`)
+      
+      if (!data || !data.length) {
+        alert("El reporte no contiene datos para el período seleccionado.")
+        return
+      }
+
+      const { jsPDF } = await import("jspdf")
+      const autoTable = (await import("jspdf-autotable")).default
+
+      const doc = new jsPDF()
+      
+      // Header
+      doc.setFontSize(22)
+      doc.setTextColor(40, 40, 40)
+      doc.text("XionPOS", 14, 20)
+      
+      doc.setFontSize(14)
+      doc.setTextColor(100, 100, 100)
+      doc.text(`Reporte: ${reportName}`, 14, 30)
+      
+      doc.setFontSize(10)
+      const periodLabels: Record<string, string> = {
+        today: "Hoy", week: "Esta Semana", month: "Este Mes", quarter: "Este Trimestre", year: "Este Año", custom: "Personalizado"
+      }
+      doc.text(`Período: ${periodLabels[dateRange] || dateRange}`, 14, 36)
+      doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 42)
+
+      // Format headers
+      const headers = Object.keys(data[0])
+      const formattedHeaders = headers.map(h => 
+        h.replace(/_/g, ' ')
+         .split(' ')
+         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+         .join(' ')
+      )
+
+      // Extract rows
+      const rows = data.map((row: any) => headers.map(header => {
+        const val = row[header]
+        if (typeof val === 'number') {
+          return Number.isInteger(val) ? val.toString() : val.toFixed(2)
+        }
+        return val ? String(val) : ''
+      }))
+
+      autoTable(doc, {
+        head: [formattedHeaders],
+        body: rows,
+        startY: 50,
+        theme: 'grid',
+        styles: {
+          fontSize: 9,
+          cellPadding: 4,
+          textColor: [40, 40, 40],
+          lineColor: [226, 232, 240], // slate-200
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: [15, 23, 42], // slate-900
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252], // slate-50
+        },
+      })
+
+      doc.save(`reporte_${reportId}_${dateRange}.pdf`)
+
+    } catch (error) {
+      console.error("Error al descargar el reporte PDF", error)
+      alert("Hubo un error al generar el reporte PDF.")
     }
   }
 
@@ -457,15 +549,28 @@ export function ReportsModule() {
                             <p className="font-semibold text-foreground">{report.name}</p>
                             <p className="text-xs text-muted-foreground">{report.description}</p>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => downloadReport(report.id)}
-                            className="gap-2 rounded-lg"
-                          >
-                            <Download className="h-4 w-4" />
-                            Excel
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => downloadReport(report.id)}
+                              className="gap-2 rounded-lg hover:border-emerald-500 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                              title="Descargar Excel (CSV)"
+                            >
+                              <Download className="h-4 w-4" />
+                              Excel
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => downloadPDFReport(report.id, report.name)}
+                              className="gap-2 rounded-lg shadow-sm"
+                              title="Descargar PDF Vistoso"
+                            >
+                              <FileText className="h-4 w-4" />
+                              PDF
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>

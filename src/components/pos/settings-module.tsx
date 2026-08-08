@@ -308,6 +308,7 @@ export function SettingsModule() {
             <div>
                <CardTitle>Métodos de Pago</CardTitle>
                <p className="text-xs text-muted-foreground mt-1">Configura las formas de pago aceptadas y su moneda.</p>
+               <p className="text-[10px] font-bold text-amber-600 mt-1 uppercase tracking-tighter">Nota: No se pueden eliminar métodos con balance activo (transacciones registradas).</p>
             </div>
           </div>
         </CardHeader>

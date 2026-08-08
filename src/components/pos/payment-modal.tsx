@@ -133,6 +133,11 @@ export function PaymentModal({
     setPayments((prev) => ({ ...prev, [focusedInput]: valueToSet.toFixed(2) }))
   }
 
+  const handleCreditPayment = () => {
+    if (remaining <= 0) return
+    setPayments((prev) => ({ ...prev, ["CREDITO"]: remaining.toFixed(2) }))
+  }
+
   const handleProcessSale = () => {
     if (totalAmount > 500) {
       setShowSecurityModal(true)
@@ -155,7 +160,7 @@ export function PaymentModal({
         return {
           payment_method_id: methodId,
           // Snapshot inmutable del nombre del método
-          payment_method_label: method?.label ?? methodId,
+          payment_method_label: method?.label ?? (methodId === "CREDITO" ? "Crédito" : methodId),
           currency: (method?.currency ?? "USD") as "USD" | "VES",
           amount_tendered: amountTendered,
           amount_usd: amountUSD,
@@ -171,12 +176,12 @@ export function PaymentModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl shadow-2xl">
+      <DialogContent className="w-[95vw] sm:w-fit sm:max-w-fit shadow-2xl p-4 sm:p-6">
         <DialogHeader className="space-y-3">
           <DialogTitle className="text-2xl font-bold text-foreground">
             Totalizador de Pagos
           </DialogTitle>
-          <div className="flex items-center justify-between rounded-xl bg-primary px-6 py-4 shadow-lg border border-primary/20">
+          <div className="flex items-center justify-between rounded-xl bg-primary px-7 py-4 shadow-lg border border-primary/20">
             <span className="text-sm font-black uppercase tracking-wider text-primary-foreground opacity-90">Total a Pagar:</span>
             <div className="text-right">
               <p className="text-4xl font-black text-primary-foreground leading-tight">
@@ -251,6 +256,14 @@ export function PaymentModal({
               ${totalPaid.toFixed(2)}
             </span>
           </div>
+          {payments["CREDITO"] && parseFloat(payments["CREDITO"]) > 0 && (
+            <div className="flex items-center justify-between text-sm bg-amber-500/10 p-2 rounded-md border border-amber-500/20">
+              <span className="text-amber-600 font-bold">Aprobado como Crédito:</span>
+              <span className="font-mono text-lg font-black text-amber-600">
+                ${parseFloat(payments["CREDITO"]).toFixed(2)}
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Restante:</span>
             <span
@@ -301,7 +314,7 @@ export function PaymentModal({
           </div>
         </div>
 
-        <DialogFooter className="gap-3 pt-4">
+        <DialogFooter className="gap-3 pt-4 flex-wrap">
           <Button
             variant="outline"
             onClick={clearPayments}
@@ -316,6 +329,14 @@ export function PaymentModal({
             className="border-2 border-primary/50 text-primary hover:bg-primary/10"
           >
             Completar
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleCreditPayment}
+            disabled={totalAmount <= 0 || remaining <= 0}
+            className="border-2 border-amber-500/50 text-amber-600 hover:bg-amber-500/10"
+          >
+            Fiar (Crédito)
           </Button>
           <Button
             variant="outline"

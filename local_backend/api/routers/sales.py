@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
 from local_backend.core.database import get_session, get_system_config
-from local_backend.core.models import Sale, SaleItem, SalePayment, Product, ProductComposition, CashSession
+from local_backend.core.models import Sale, SaleItem, SalePayment, Product, ProductComposition, CashSession, InventoryTransaction, Client
 
 router = APIRouter(prefix="/sales", tags=["Sales"])
 
@@ -53,7 +53,7 @@ class SaleItemDTO(BaseModel):
 
 
 class SaleCreateDTO(BaseModel):
-    client_id: Optional[str] = None
+    client_id: str = Field(..., description="ID del cliente (OBLIGATORIO)")
     client_name: str = "Cliente Final"
     subtotal_usd: float
     tax_amount_usd: float
@@ -88,7 +88,8 @@ def _validate_payment_methods(
     if not configured_ids:
         return
 
-    invalid = [pid for pid in payment_method_ids if pid not in configured_ids]
+    # Permitir 'CREDITO' como método interno del sistema independientemente de la configuración
+    invalid = [pid for pid in payment_method_ids if pid not in configured_ids and pid != "CREDITO"]
     if invalid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -171,6 +172,25 @@ def register_sale(payload: SaleCreateDTO, session: Session = Depends(get_session
                 reference_code=pmt.reference_code,
             )
             session.add(sale_payment)
+            
+            # --- Lógica de Fiar / Crédito ---
+            if pmt.payment_method_id == "CREDITO":
+                if not payload.client_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Debe seleccionar un cliente registrado para poder fiar (Crédito)."
+                    )
+                client = session.get(Client, payload.client_id)
+                if not client:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Cliente no encontrado en la base de datos."
+                    )
+                
+                # Sumar a la deuda del cliente
+                client.current_debt += pmt.amount_usd
+                client.is_synced = False
+                session.add(client)
 
         # --- Procesar ítems y descontar inventario ---
         for item in payload.items:
@@ -206,6 +226,17 @@ def register_sale(payload: SaleCreateDTO, session: Session = Depends(get_session
                     )
                 product.cached_stock_quantity = current_stock - item.quantity
                 product.is_synced = False
+                
+                kardex = InventoryTransaction(
+                    id=str(uuid4()),
+                    product_id=product.id,
+                    transaction_type="OUT",
+                    reason="SALE",
+                    quantity=item.quantity,
+                    reference_id=new_sale.id,
+                    user_id=active_session.user_id
+                )
+                session.add(kardex)
                 session.add(product)
 
             elif product.product_type == "virtual":
@@ -229,6 +260,17 @@ def register_sale(payload: SaleCreateDTO, session: Session = Depends(get_session
                         )
                     child.cached_stock_quantity = child_stock - required
                     child.is_synced = False
+                    
+                    kardex_child = InventoryTransaction(
+                        id=str(uuid4()),
+                        product_id=child.id,
+                        transaction_type="OUT",
+                        reason="SALE",
+                        quantity=required,
+                        reference_id=new_sale.id,
+                        user_id=active_session.user_id
+                    )
+                    session.add(kardex_child)
                     session.add(child)
             # Los servicios no consumen stock
 
@@ -262,3 +304,72 @@ def get_sale_payments(sale_id: str, session: Session = Depends(get_session)):
         select(SalePayment).where(SalePayment.sale_id == sale_id)
     ).all()
     return payments
+
+@router.post("/{sale_id}/refund", response_model=Sale)
+def refund_sale(sale_id: str, session: Session = Depends(get_session)):
+    """
+    Procesa la devolución total de una venta.
+    Devuelve los items al inventario y marca la venta como 'refunded'.
+    """
+    sale = session.get(Sale, sale_id)
+    if not sale:
+        raise HTTPException(status_code=404, detail="Venta no encontrada")
+        
+    if sale.status == "refunded":
+        raise HTTPException(status_code=400, detail="Esta venta ya ha sido devuelta")
+        
+    # Obtener items de la venta
+    items = session.exec(select(SaleItem).where(SaleItem.sale_id == sale_id)).all()
+    
+    # Reponer inventario y registrar en Kardex
+    for item in items:
+        product = session.get(Product, item.product_id)
+        if not product:
+            continue
+            
+        if product.product_type == "physical":
+            product.cached_stock_quantity = (product.cached_stock_quantity or 0.0) + item.quantity
+            product.is_synced = False
+            session.add(product)
+            
+            kardex = InventoryTransaction(
+                id=str(uuid4()),
+                product_id=product.id,
+                transaction_type="IN",
+                reason="REFUND",
+                quantity=item.quantity,
+                reference_id=sale.id
+            )
+            session.add(kardex)
+            
+        elif product.product_type == "virtual":
+            components = session.exec(select(ProductComposition).where(ProductComposition.parent_id == product.id)).all()
+            for comp in components:
+                child = session.get(Product, comp.child_id)
+                if child and child.product_type == "physical":
+                    required = comp.quantity_required * item.quantity
+                    child.cached_stock_quantity = (child.cached_stock_quantity or 0.0) + required
+                    child.is_synced = False
+                    session.add(child)
+                    
+                    kardex_child = InventoryTransaction(
+                        id=str(uuid4()),
+                        product_id=child.id,
+                        transaction_type="IN",
+                        reason="REFUND",
+                        quantity=required,
+                        reference_id=sale.id
+                    )
+                    session.add(kardex_child)
+                    
+    sale.status = "refunded"
+    sale.is_synced = False
+    session.add(sale)
+    
+    try:
+        session.commit()
+        session.refresh(sale)
+        return sale
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
