@@ -20,6 +20,7 @@ import {
   Palette,
   Store,
 } from "lucide-react"
+import { useActiveSession } from "@/hooks/queries/use-cash-register"
 
 interface DashboardHeaderProps {
   title: string
@@ -27,9 +28,11 @@ interface DashboardHeaderProps {
   onLogout: () => void
   onNavigate: (module: string) => void
   currentUser?: any
+  onOpenCaja?: () => void
+  onCloseCaja?: () => void
 }
 
-export function DashboardHeader({ title, exchangeRate, onLogout, onNavigate, currentUser }: DashboardHeaderProps) {
+export function DashboardHeader({ title, exchangeRate, onLogout, onNavigate, currentUser, onOpenCaja, onCloseCaja }: DashboardHeaderProps) {
   const initials = (currentUser?.name || "Cajero de Desarrollo")
     .split(" ")
     .filter(Boolean)
@@ -49,6 +52,9 @@ export function DashboardHeader({ title, exchangeRate, onLogout, onNavigate, cur
         return role;
     }
   };
+
+  const { data: activeSession } = useActiveSession()
+
   return (
     <header className="flex h-20 items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-8">
       <div>
@@ -57,14 +63,15 @@ export function DashboardHeader({ title, exchangeRate, onLogout, onNavigate, cur
       </div>
 
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-3 rounded-lg bg-secondary px-4 py-2">
+
+        <div className="flex items-center gap-3 rounded-lg bg-secondary/80 px-4 py-2 border border-border/40 shadow-sm">
           <span className="text-sm font-medium text-foreground">Tasa:</span>
           <span className="font-mono text-lg font-bold text-primary">
             {exchangeRate.toFixed(2)} Bs
           </span>
         </div>
 
-        <div className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2">
+        <div className="flex items-center gap-2 rounded-lg bg-secondary/80 px-4 py-2 border border-border/40 shadow-sm">
           <Wifi className="h-4 w-4 text-emerald-500" />
           <span className="text-sm font-medium text-foreground">Conectado</span>
         </div>

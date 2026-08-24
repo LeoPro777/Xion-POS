@@ -44,7 +44,7 @@ export function DashboardSidebar({ activeItem, onItemClick }: DashboardSidebarPr
   return (
     <aside
       className={cn(
-        "flex h-full flex-col bg-sidebar text-sidebar-foreground transition-all duration-300",
+        "flex h-full flex-col bg-card border-r border-border text-card-foreground transition-all duration-300",
         isCollapsed ? "w-20" : "w-64"
       )}
     >
@@ -86,8 +86,8 @@ export function DashboardSidebar({ activeItem, onItemClick }: DashboardSidebarPr
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-3 transition-all duration-200",
                 isActive
-                  ? "bg-primary text-primary-foreground shadow-md"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  ? "bg-primary text-white shadow-md font-semibold"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               )}
               title={isCollapsed ? item.label : undefined}
             >

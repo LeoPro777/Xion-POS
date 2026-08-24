@@ -83,6 +83,8 @@ export function DashboardScreen({ onLogout, currentUser }: DashboardScreenProps)
           onLogout={onLogout}
           onNavigate={setActiveNav}
           currentUser={currentUser}
+          onOpenCaja={() => setShowApertura(true)}
+          onCloseCaja={() => setShowArqueo(true)}
         />
 
         {/* Dynamic Content */}

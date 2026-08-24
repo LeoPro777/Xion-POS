@@ -463,7 +463,7 @@ export function SalesModule() {
             </Button>
           </div>
           <Button
-            disabled={cart.length === 0 || (config && !config.is_cash_session_open) || !selectedClient}
+            disabled={cart.length === 0 || (config && !config.is_cash_session_open)}
             onClick={() => setShowPaymentModal(true)}
             className="h-10 w-full gap-2 rounded-xl bg-primary text-base font-black text-primary-foreground hover:bg-primary/90 shadow-lg mt-0 disabled:bg-slate-500"
           >
@@ -471,11 +471,6 @@ export function SalesModule() {
                <>
                  <Lock className="h-4 w-4" />
                  ABRIR CAJA PRIMERO
-               </>
-            ) : !selectedClient && cart.length > 0 ? (
-               <>
-                 <User className="h-4 w-4" />
-                 SELECCIONE CLIENTE
                </>
             ) : (
                <>
@@ -498,8 +493,8 @@ export function SalesModule() {
         onConfirm={async (payments: SalePaymentDTO[]) => {
           try {
             const payload: SaleCreateDTO = {
-              client_id: selectedClient!.id,
-              client_name: selectedClient!.name,
+              client_id: selectedClient ? selectedClient.id : undefined,
+              client_name: selectedClient ? selectedClient.name : (clientIdentifier.trim() || "Cliente Final"),
               subtotal_usd: subtotal,
               tax_amount_usd: tax,
               total_amount_usd: total,

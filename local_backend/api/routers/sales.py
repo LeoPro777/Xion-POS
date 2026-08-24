@@ -53,7 +53,7 @@ class SaleItemDTO(BaseModel):
 
 
 class SaleCreateDTO(BaseModel):
-    client_id: str = Field(..., description="ID del cliente (OBLIGATORIO)")
+    client_id: Optional[str] = Field(default=None, description="ID del cliente (Opcional para Cliente Final)")
     client_name: str = "Cliente Final"
     subtotal_usd: float
     tax_amount_usd: float
@@ -213,17 +213,10 @@ def register_sale(payload: SaleCreateDTO, session: Session = Depends(get_session
             )
             session.add(sale_item)
 
-            # Descuento de stock para productos físicos
+            # Descuento de stock para productos físicos (Se permite stock negativo en offline)
             if product.product_type == "physical":
                 current_stock = product.cached_stock_quantity or 0.0
-                if current_stock < item.quantity:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=(
-                            f"Stock insuficiente para '{product.name}' "
-                            f"(Stock: {current_stock}, Requerido: {item.quantity})"
-                        ),
-                    )
+                # Nota: Validación de stock insuficiente removida para soportar stock negativo offline.
                 product.cached_stock_quantity = current_stock - item.quantity
                 product.is_synced = False
                 
@@ -250,14 +243,7 @@ def register_sale(payload: SaleCreateDTO, session: Session = Depends(get_session
                         continue
                     required = comp.quantity_required * item.quantity
                     child_stock = child.cached_stock_quantity or 0.0
-                    if child_stock < required:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=(
-                                f"Stock insuficiente del componente '{child.name}' "
-                                f"(Stock: {child_stock}) para el combo '{product.name}'"
-                            ),
-                        )
+                    # Nota: Validación de stock insuficiente removida para combos para soportar stock negativo offline.
                     child.cached_stock_quantity = child_stock - required
                     child.is_synced = False
                     
