@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import '../styles/globals.css';
+import './styles/globals.css';
 import { DashboardScreen } from '@/components/pos/dashboard-screen';
 import { LoginScreen } from '@/components/pos/login-screen';
 import { apiClient } from '@/lib/api';
@@ -15,6 +15,7 @@ export default function App() {
   
   // Seguridad activada: falso por defecto, requiere login
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const { toast } = useToast();
 
   const { data: config } = useSystemStatus();
@@ -161,15 +162,16 @@ export default function App() {
    * Bypass temporal activo para desarrollo mediante LoginScreen.
    */
   if (!isAuthenticated) {
-    return <LoginScreen onLogin={(user) => setIsAuthenticated(true)} />;
+    return <LoginScreen onLogin={(user) => { setCurrentUser(user); setIsAuthenticated(true); }} />;
   }
 
   return (
     <>
       <DashboardScreen 
+        currentUser={currentUser}
         onLogout={() => {
-          // En modo desarrollo puedes dejar esto vacío o que simplemente cambie el estado
           console.log("Cerrando sesión...");
+          setCurrentUser(null);
           setIsAuthenticated(false); 
         }} 
       />

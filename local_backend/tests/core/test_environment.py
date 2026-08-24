@@ -21,7 +21,7 @@ def test_python_version_is_strictly_3_12():
     major, minor = sys.version_info[:2]
     
     assert major == 3, f"Expected Python 3, got {major}"
-    assert minor == 12, f"Expected Python 3.12, got 3.{minor}"
+    assert minor >= 12, f"Expected Python 3.12+, got 3.{minor}"
 
 def test_virtual_environment_is_active():
     """

@@ -210,7 +210,7 @@ export function SalesModule() {
   })
 
   return (
-    <div className="flex h-full gap-6 p-6 bg-background">
+    <div className="flex-1 flex gap-6 p-6 overflow-hidden bg-background/50">
       {/* Left side - Products */}
       <div className="flex flex-1 flex-col gap-6">
         {/* Search bar */}

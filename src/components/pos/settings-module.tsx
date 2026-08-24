@@ -109,15 +109,7 @@ export function SettingsModule() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-auto bg-background/50 p-8">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-foreground">Configuraciones</h1>
-        <p className="text-muted-foreground">
-          Configura los detalles de tu tienda y opciones del sistema
-        </p>
-      </div>
-
+    <div className="flex h-full flex-col gap-6 overflow-auto bg-background/50 p-6">
       {/* Store Information */}
       <Card className="border-border/50 shadow-md">
         <CardHeader>

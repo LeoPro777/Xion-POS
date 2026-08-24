@@ -66,3 +66,13 @@ yarn-error.log*
 *.temp
 *.zip
 *.tar.gz
+
+# Databases & Reports
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+reports/
+local_backend/reports/
+scratch/
+local_backend/scratch/

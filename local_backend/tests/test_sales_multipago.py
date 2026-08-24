@@ -35,7 +35,12 @@ PAYMENT_METHODS_CONFIG = [
 @pytest.fixture(name="session")
 def session_fixture():
     """Crea una BD en memoria para cada test — no contamina la BD real."""
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    from sqlalchemy.pool import StaticPool
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         # Config con métodos de pago dinámicos
@@ -44,6 +49,36 @@ def session_fixture():
             current_exchange_rate_bs=36.5,
         )
         session.add(config)
+
+        # Crear usuario cashier y sesión de caja abierta para validaciones del API
+        from local_backend.core.models import User, CashSession, Client
+        user = User(
+            id="user-1",
+            name="Cajero Test",
+            email="cajero@test.com",
+            role="cashier"
+        )
+        session.add(user)
+        session.commit()
+
+        cash_session = CashSession(
+            id="session-1",
+            user_id=user.id,
+            user_name=user.name,
+            status="open"
+        )
+        session.add(cash_session)
+        session.commit()
+
+        # Crear cliente para clave foránea
+        client = Client(
+            id="client-1",
+            name="Cliente Test",
+            email="cliente@test.com",
+            identification_number="12345678"
+        )
+        session.add(client)
+        session.commit()
 
         # Producto físico de prueba
         product = Product(
@@ -86,6 +121,7 @@ class TestSaleRegistration:
         """Una venta con un único pago en USD debe crearse correctamente."""
         db_session, product = session
         payload = {
+            "client_id": "client-1",
             "client_name": "Cliente Test",
             "subtotal_usd": 10.0,
             "tax_amount_usd": 1.6,
@@ -112,7 +148,7 @@ class TestSaleRegistration:
                 }
             ],
         }
-        response = client.post("/sales", json=payload)
+        response = client.post("/api/v1/sales", json=payload)
         assert response.status_code == 201
         data = response.json()
         assert "sale_id" in data
@@ -128,6 +164,7 @@ class TestSaleRegistration:
         """Una venta split-tender (USD + Bs) debe crear dos registros SalePayment."""
         db_session, product = session
         payload = {
+            "client_id": "client-1",
             "client_name": "Cliente Split",
             "subtotal_usd": 20.0,
             "tax_amount_usd": 3.2,
@@ -161,7 +198,7 @@ class TestSaleRegistration:
                 }
             ],
         }
-        response = client.post("/sales", json=payload)
+        response = client.post("/api/v1/sales", json=payload)
         assert response.status_code == 201
 
         sale_id = response.json()["sale_id"]
@@ -173,6 +210,7 @@ class TestSaleRegistration:
         db_session, product = session
         initial_stock = product.cached_stock_quantity  # 50.0
         payload = {
+            "client_id": "client-1",
             "client_name": "Test Inv",
             "subtotal_usd": 10.0,
             "tax_amount_usd": 0.0,
@@ -199,7 +237,7 @@ class TestSaleRegistration:
                 }
             ],
         }
-        client.post("/sales", json=payload)
+        client.post("/api/v1/sales", json=payload)
         db_session.refresh(product)
         assert product.cached_stock_quantity == pytest.approx(initial_stock - 3, abs=0.001)
 
@@ -207,6 +245,7 @@ class TestSaleRegistration:
         """Una venta que supere el stock debe rechazarse con 400."""
         _, product = session
         payload = {
+            "client_id": "client-1",
             "client_name": "Test Over",
             "subtotal_usd": 10.0,
             "tax_amount_usd": 0.0,
@@ -233,7 +272,7 @@ class TestSaleRegistration:
                 }
             ],
         }
-        response = client.post("/sales", json=payload)
+        response = client.post("/api/v1/sales", json=payload)
         assert response.status_code == 400
         assert "insuficiente" in response.json()["detail"].lower()
 
@@ -241,6 +280,7 @@ class TestSaleRegistration:
         """Un método de pago no configurado debe rechazarse con 400."""
         _, product = session
         payload = {
+            "client_id": "client-1",
             "client_name": "Test Invalid",
             "subtotal_usd": 10.0,
             "tax_amount_usd": 0.0,
@@ -267,7 +307,7 @@ class TestSaleRegistration:
                 }
             ],
         }
-        response = client.post("/sales", json=payload)
+        response = client.post("/api/v1/sales", json=payload)
         assert response.status_code == 400
         assert "reconocidos" in response.json()["detail"].lower()
 
@@ -275,6 +315,7 @@ class TestSaleRegistration:
         """Si el pago no cubre el total de la venta debe rechazarse con 400."""
         _, product = session
         payload = {
+            "client_id": "client-1",
             "client_name": "Test Under",
             "subtotal_usd": 100.0,
             "tax_amount_usd": 0.0,
@@ -301,13 +342,14 @@ class TestSaleRegistration:
                 }
             ],
         }
-        response = client.post("/sales", json=payload)
+        response = client.post("/api/v1/sales", json=payload)
         assert response.status_code == 400
         assert "insuficiente" in response.json()["detail"].lower()
 
     def test_empty_items_raises_400(self, client: TestClient, session):
         """Una venta sin ítems debe rechazarse en la validación del DTO."""
         payload = {
+            "client_id": "client-1",
             "client_name": "Test Empty",
             "subtotal_usd": 0.0,
             "tax_amount_usd": 0.0,
@@ -325,7 +367,7 @@ class TestSaleRegistration:
             ],
             "items": [],  # Lista vacía → Pydantic min_length=1
         }
-        response = client.post("/sales", json=payload)
+        response = client.post("/api/v1/sales", json=payload)
         assert response.status_code == 422  # Unprocessable Entity de Pydantic
 
     def test_get_sale_payments_endpoint(self, client: TestClient, session):
@@ -333,6 +375,7 @@ class TestSaleRegistration:
         db_session, product = session
         # Crear venta
         payload = {
+            "client_id": "client-1",
             "client_name": "Test Get Payments",
             "subtotal_usd": 10.0,
             "tax_amount_usd": 0.0,
@@ -359,10 +402,10 @@ class TestSaleRegistration:
                 }
             ],
         }
-        post_resp = client.post("/sales", json=payload)
+        post_resp = client.post("/api/v1/sales", json=payload)
         sale_id = post_resp.json()["sale_id"]
 
-        get_resp = client.get(f"/sales/{sale_id}/payments")
+        get_resp = client.get(f"/api/v1/sales/{sale_id}/payments")
         assert get_resp.status_code == 200
         payments = get_resp.json()
         assert len(payments) == 1

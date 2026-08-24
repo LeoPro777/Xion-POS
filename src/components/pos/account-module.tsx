@@ -15,14 +15,7 @@ export function AccountModule() {
   const { updateState, progress, version, checkUpdate, installUpdate } = useAutoUpdater()
 
   return (
-    <div className="flex-1 overflow-auto bg-background/50 p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">Cuenta del Servicio</h2>
-          <p className="text-muted-foreground mt-1">Gestión de licencia, plan y equipos afiliados a Xion POS.</p>
-        </div>
-      </div>
-
+    <div className="flex-1 flex flex-col gap-6 overflow-auto bg-background/50 p-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Plan Info */}
         <Card className="col-span-full lg:col-span-2 border-border/50 shadow-md">

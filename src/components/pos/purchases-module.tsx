@@ -241,9 +241,9 @@ export function PurchasesModule() {
   }
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-background font-sans text-sm">
+    <div className="flex-1 flex gap-6 p-6 overflow-hidden bg-background/50 font-sans text-sm">
       {/* Panel Izquierdo - Catálogo Minimalista */}
-      <div className="flex flex-1 flex-col overflow-hidden bg-secondary/10">
+      <div className="flex flex-1 flex-col overflow-hidden bg-card border border-border/50 rounded-xl shadow-md">
         
         {/* Búsqueda y Filtros Compactos */}
         <div className="bg-background border-b-2 border-border/80 p-3 shrink-0 flex items-center justify-between gap-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] z-10 w-full relative">
@@ -317,7 +317,7 @@ export function PurchasesModule() {
       </div>
 
       {/* Panel Derecho - Recepción Detallada */}
-      <div className="flex w-[550px] xl:w-[600px] flex-col bg-card border-l-[3px] border-border shadow-2xl z-20 shrink-0">
+      <div className="w-[550px] xl:w-[600px] flex flex-col bg-card border border-border/50 shadow-xl rounded-xl overflow-hidden shrink-0">
         
         {/* Cabecera Proveedor */}
         <div className="p-3 border-b-2 border-border/70 bg-secondary/15 shrink-0">

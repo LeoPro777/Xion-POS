@@ -5,8 +5,10 @@ from local_backend.main import app
 client = TestClient(app)
 
 def test_create_physical_product():
+    import uuid
+    random_sku = f"SKU-{uuid.uuid4().hex[:6]}"
     payload = {
-        "sku": "001122",
+        "sku": random_sku,
         "name": "Coca Cola 2L",
         "price_usd": 2.50,
         "cost_usd": 1.00,
@@ -15,7 +17,7 @@ def test_create_physical_product():
     }
     response = client.post("/api/v1/inventory/products", json=payload)
     assert response.status_code == 201
-    assert response.json()["sku"] == "001122"
+    assert response.json()["sku"] == random_sku
     assert response.json()["tax_type"] == "vat"
 
 def test_create_combo_without_items_fails():

@@ -83,15 +83,7 @@ export function PreferencesModule() {
   ]
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-auto bg-background/50 p-8">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-foreground">Preferencias</h1>
-        <p className="text-muted-foreground">
-          Personaliza la apariencia y comportamiento del sistema
-        </p>
-      </div>
-
+    <div className="flex h-full flex-col gap-6 overflow-auto bg-background/50 p-6">
       {/* Theme Settings */}
       <Card className="border-border/50 shadow-md">
         <CardHeader>

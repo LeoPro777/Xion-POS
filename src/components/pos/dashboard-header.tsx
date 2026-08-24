@@ -26,9 +26,29 @@ interface DashboardHeaderProps {
   exchangeRate: number
   onLogout: () => void
   onNavigate: (module: string) => void
+  currentUser?: any
 }
 
-export function DashboardHeader({ title, exchangeRate, onLogout, onNavigate }: DashboardHeaderProps) {
+export function DashboardHeader({ title, exchangeRate, onLogout, onNavigate, currentUser }: DashboardHeaderProps) {
+  const initials = (currentUser?.name || "Cajero de Desarrollo")
+    .split(" ")
+    .filter(Boolean)
+    .map((n: string) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  const getRoleLabel = (role?: string) => {
+    if (!role) return "Usuario Local";
+    switch (role.toLowerCase()) {
+      case "manager":
+        return "Administrador General";
+      case "cashier":
+        return "Cajero Autorizado";
+      default:
+        return role;
+    }
+  };
   return (
     <header className="flex h-20 items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-8">
       <div>
@@ -60,7 +80,7 @@ export function DashboardHeader({ title, exchangeRate, onLogout, onNavigate }: D
             <button className="flex items-center gap-3 rounded-lg transition-all hover:bg-accent/50 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/20">
               <Avatar className="h-9 w-9">
                 <AvatarFallback className="bg-primary text-xs font-medium text-primary-foreground select-none">
-                  CA
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               <span className="sr-only">Perfil de usuario</span>
@@ -68,10 +88,10 @@ export function DashboardHeader({ title, exchangeRate, onLogout, onNavigate }: D
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <div className="px-2 py-1.5 text-sm font-semibold text-foreground">
-              Cajero de Desarrollo
+              {currentUser?.name || "Cajero de Desarrollo"}
             </div>
             <div className="px-2 pb-2 text-xs text-muted-foreground">
-              Administrador General
+              {getRoleLabel(currentUser?.role)}
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onNavigate("Perfil")}>

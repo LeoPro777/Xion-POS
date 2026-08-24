@@ -22,9 +22,10 @@ import { ProfileModule } from "./profile-module"
 
 interface DashboardScreenProps {
   onLogout: () => void
+  currentUser?: any
 }
 
-export function DashboardScreen({ onLogout }: DashboardScreenProps) {
+export function DashboardScreen({ onLogout, currentUser }: DashboardScreenProps) {
   const [activeNav, setActiveNav] = useState("Dashboard")
   const [showArqueo, setShowArqueo] = useState(false)
   const [showApertura, setShowApertura] = useState(false)
@@ -81,6 +82,7 @@ export function DashboardScreen({ onLogout }: DashboardScreenProps) {
           exchangeRate={exchangeRate}
           onLogout={onLogout}
           onNavigate={setActiveNav}
+          currentUser={currentUser}
         />
 
         {/* Dynamic Content */}

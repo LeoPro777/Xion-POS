@@ -51,6 +51,14 @@ def session_fixture():
             role="cashier"
         )
         session.add(user)
+
+        client = Client(
+            id="client-1",
+            name="Cliente Test",
+            email="cliente@test.com",
+            identification_number="12345678"
+        )
+        session.add(client)
         
         product = Product(
             id=str(uuid4()),
@@ -88,6 +96,8 @@ def test_full_cash_session_cycle(client: TestClient, session):
     
     # 1. Intentar vender sin caja abierta (Debe fallar 400)
     payload = {
+        "client_id": "client-1",
+        "client_name": "Cliente de Prueba",
         "subtotal_usd": 10.0,
         "tax_amount_usd": 0.0,
         "total_amount_usd": 10.0,

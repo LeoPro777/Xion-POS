@@ -91,15 +91,7 @@ export function HelpModule() {
   )
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-auto bg-background/50 p-8">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-foreground">Centro de Ayuda</h1>
-        <p className="text-muted-foreground">
-          Encuentra respuestas, tutoriales y guías para usar el sistema POS
-        </p>
-      </div>
-
+    <div className="flex h-full flex-col gap-6 overflow-auto bg-background/50 p-6">
       {/* Search */}
       <div className="relative max-w-2xl">
         <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />

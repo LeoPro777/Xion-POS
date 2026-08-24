@@ -23,14 +23,7 @@ export function ProfileModule() {
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-background/50 p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">Perfil de Usuario</h2>
-          <p className="text-muted-foreground mt-1">Configura tus credenciales y revisa tus permisos asignados.</p>
-        </div>
-      </div>
-
+    <div className="flex-1 flex flex-col gap-6 overflow-auto bg-background/50 p-6">
       <div className="grid gap-6 md:grid-cols-3">
         {/* Profile Identity */}
         <Card className="col-span-1 border-border/50 shadow-md">

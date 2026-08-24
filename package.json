@@ -5,8 +5,9 @@
   "scripts": {
     "sync-version": "node scripts/sync-version.js",
     "prebuild": "npm run sync-version",
-    "dev": "vite",
-    "dev:vite": "npm run dev",
+    "dev": "concurrently -n \"Vite,Python\" -c \"cyan,green\" \"npm run dev:vite\" \"npm run dev:backend\"",
+    "dev:vite": "vite",
+    "dev:backend": ".\\.venv\\Scripts\\python.exe -m local_backend.main",
     "dev:electron": "cd electron_app && npm run start",
     "build": "npm run build:ui",
     "build:ui": "vite build && node scripts/copy_out.js",
@@ -17,7 +18,8 @@
     "start": "vite preview",
     "start:web": "vite preview",
     "start:desktop": "electron electron_app/dist/bootstrap.js",
-    "lint": "eslint --ext .ts,.tsx,.js,.jsx . --config .eslintrc.js"
+    "lint": "eslint --ext .ts,.tsx,.js,.jsx . --config .eslintrc.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -87,6 +89,7 @@
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
     "@vitejs/plugin-react": "^5.1.4",
+    "concurrently": "^10.0.4",
     "cross-env": "^7.0.3",
     "electron": "^40.6.0",
     "esbuild": "^0.17.19",
