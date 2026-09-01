@@ -6,6 +6,7 @@
 # -----------------------------------------------------------------------------
 
 import json
+import asyncio
 from typing import List, Optional
 from uuid import uuid4
 
@@ -13,10 +14,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
+from local_backend.api.utils.audit_service import log_event, fire_audit_log
 from local_backend.core.database import get_session, get_system_config
 from local_backend.core.models import Sale, SaleItem, SalePayment, Product, ProductComposition, CashSession, InventoryTransaction, Client
 
 router = APIRouter(prefix="/sales", tags=["Sales"])
+
+class RefundRequestDTO(BaseModel):
+    reason: str = "Devolución / Anulación de venta"
+    supervisor_id: Optional[str] = None
+
 
 
 # =============================================================================
@@ -211,12 +218,14 @@ def register_sale(payload: SaleCreateDTO, session: Session = Depends(get_session
                 tax_amount_usd=item.tax_amount_usd,
                 total_price_usd=item.total_price_usd,
             )
-            session.add(sale_item)
-
-            # Descuento de stock para productos físicos (Se permite stock negativo en offline)
+              # Descuento de stock para productos físicos (Se permite stock negativo si config.allow_negative_stock es True)
             if product.product_type == "physical":
                 current_stock = product.cached_stock_quantity or 0.0
-                # Nota: Validación de stock insuficiente removida para soportar stock negativo offline.
+                if not config.allow_negative_stock and current_stock < item.quantity:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Stock insuficiente para {product.name}. Disponible: {current_stock}, Requerido: {item.quantity}"
+                    )
                 product.cached_stock_quantity = current_stock - item.quantity
                 product.is_synced = False
                 
@@ -243,7 +252,11 @@ def register_sale(payload: SaleCreateDTO, session: Session = Depends(get_session
                         continue
                     required = comp.quantity_required * item.quantity
                     child_stock = child.cached_stock_quantity or 0.0
-                    # Nota: Validación de stock insuficiente removida para combos para soportar stock negativo offline.
+                    if not config.allow_negative_stock and child_stock < required:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Stock insuficiente para el componente '{child.name}' del combo '{product.name}'. Disponible: {child_stock}, Requerido: {required}"
+                        )
                     child.cached_stock_quantity = child_stock - required
                     child.is_synced = False
                     
@@ -261,6 +274,26 @@ def register_sale(payload: SaleCreateDTO, session: Session = Depends(get_session
             # Los servicios no consumen stock
 
         session.commit()
+        
+        # Auditoría de la venta creada
+        sale_data = {
+            "sale_id": new_sale.id,
+            "total_usd": new_sale.total_amount_usd,
+            "total_bs": new_sale.total_amount_bs,
+            "exchange_rate": new_sale.exchange_rate,
+            "payments": [p.model_dump() for p in payload.payments],
+            "items": [i.model_dump() for i in payload.items]
+        }
+        fire_audit_log(
+            module="sales",
+            action="CREATE",
+            description=f"Registro de venta #{new_sale.id[:8]} por un total de ${new_sale.total_amount_usd:.2f}",
+            severity="INFO",
+            entity_name="sale",
+            entity_id=new_sale.id,
+            new_values=sale_data
+        )
+        
         return {"detail": "Venta procesada exitosamente", "sale_id": new_sale.id}
 
     except HTTPException as http_exc:
@@ -272,6 +305,7 @@ def register_sale(payload: SaleCreateDTO, session: Session = Depends(get_session
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error interno procesando la venta: {str(exc)}",
         )
+
 
 
 @router.get("", response_model=List[Sale])
@@ -292,7 +326,11 @@ def get_sale_payments(sale_id: str, session: Session = Depends(get_session)):
     return payments
 
 @router.post("/{sale_id}/refund", response_model=Sale)
-def refund_sale(sale_id: str, session: Session = Depends(get_session)):
+def refund_sale(
+    sale_id: str, 
+    payload: Optional[RefundRequestDTO] = None, 
+    session: Session = Depends(get_session)
+):
     """
     Procesa la devolución total de una venta.
     Devuelve los items al inventario y marca la venta como 'refunded'.
@@ -355,7 +393,25 @@ def refund_sale(sale_id: str, session: Session = Depends(get_session)):
     try:
         session.commit()
         session.refresh(sale)
+        
+        # Auditoría de la anulación
+        reason_str = payload.reason if payload else "Anulación estándar de venta"
+        supervisor_id = payload.supervisor_id if payload else None
+        
+        fire_audit_log(
+            module="sales",
+            action="CANCEL",
+            description=f"Venta #{sale.id[:8]} anulada/devuelta por un total de ${sale.total_amount_usd:.2f}",
+            severity="CRITICAL",
+            entity_name="sale",
+            entity_id=sale.id,
+            old_values={"status": "completed", "total_usd": sale.total_amount_usd},
+            new_values={"status": "refunded"},
+            metadata={"reason": reason_str, "supervisor_id": supervisor_id}
+        )
+        
         return sale
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+

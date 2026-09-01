@@ -1,12 +1,21 @@
 from typing import Dict, List, Optional
 from uuid import uuid4
+import asyncio
+from datetime import datetime, UTC
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, SQLModel, select, Field
 
 from local_backend.core.database import get_session
-from local_backend.core.models import Product, ProductType, TaxType, ProductComposition
+from local_backend.core.models import Product, ProductType, TaxType, ProductComposition, InventoryTransaction
+from local_backend.api.utils.audit_service import log_event, fire_audit_log
 
 router = APIRouter(prefix="/inventory", tags=["Inventory"])
+
+class StockAdjustmentDTO(SQLModel):
+    product_id: str
+    new_quantity: float
+    justification: str
+
 
 class ComboItemCreate(SQLModel):
     product_id: str
@@ -118,10 +127,22 @@ def create_product(payload: ProductCreate, session: Session = Depends(get_sessio
     try:
         session.commit()
         session.refresh(new_product)
+        
+        fire_audit_log(
+            module="inventory",
+            action="CREATE",
+            description=f"Producto '{new_product.name}' ({new_product.sku}) creado exitosamente",
+            severity="INFO",
+            entity_name="product",
+            entity_id=new_product.id,
+            new_values=new_product.model_dump()
+        )
+        
         return new_product
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail="Transaction failed in local storage")
+
 
 
 @router.put("/products/{product_id}", response_model=Product)
@@ -129,6 +150,11 @@ def update_product(product_id: str, updated_data: Dict[str, object], session: Se
     product = session.get(Product, product_id)
     if not product or product.is_deleted:
         raise ProductNotFoundError(product_id)
+
+    # Guardar valores anteriores para auditar
+    old_price = product.price_usd
+    old_cost = product.cost_usd
+    old_values = product.model_dump()
 
     # Block manual stock manipulation from updates
     if "cached_stock_quantity" in updated_data:
@@ -142,13 +168,49 @@ def update_product(product_id: str, updated_data: Dict[str, object], session: Se
         if hasattr(product, key) and key not in {"id", "created_at", "updated_at", "is_deleted", "is_synced"}:
             setattr(product, key, value)
 
-    from datetime import datetime
     product.is_synced = False
     product.updated_at = datetime.utcnow()
     session.add(product)
     session.commit()
     session.refresh(product)
+
+    # Auditar cambios de precios u otros campos
+    new_price = product.price_usd
+    new_cost = product.cost_usd
+    new_values = product.model_dump()
+
+    if old_price != new_price or old_cost != new_cost:
+        old_margin = ((old_price - old_cost) / old_price * 100) if old_price > 0 else 0
+        new_margin = ((new_price - new_cost) / new_price * 100) if new_price > 0 else 0
+        
+        fire_audit_log(
+            module="inventory",
+            action="PRICE_CHANGE",
+            description=f"Cambio de precio/costo para '{product.name}' ({product.sku})",
+            severity="WARNING",
+            entity_name="product",
+            entity_id=product.id,
+            old_values={"price_usd": old_price, "cost_usd": old_cost, "margin": old_margin},
+            new_values={"price_usd": new_price, "cost_usd": new_cost, "margin": new_margin}
+        )
+    else:
+        # Auditoría general de actualización
+        diff_old = {k: v for k, v in old_values.items() if k in updated_data and v != new_values[k]}
+        diff_new = {k: v for k, v in new_values.items() if k in updated_data and v != old_values[k]}
+        if diff_old:
+            fire_audit_log(
+                module="inventory",
+                action="UPDATE",
+                description=f"Producto '{product.name}' ({product.sku}) modificado",
+                severity="INFO",
+                entity_name="product",
+                entity_id=product.id,
+                old_values=diff_old,
+                new_values=diff_new
+            )
+
     return product
+
 
 
 @router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -161,6 +223,16 @@ def delete_product(product_id: str, session: Session = Depends(get_session)):
     product.is_synced = False
     session.add(product)
     session.commit()
+
+    fire_audit_log(
+        module="inventory",
+        action="DELETE",
+        description=f"Producto '{product.name}' ({product.sku}) marcado como eliminado",
+        severity="CRITICAL",
+        entity_name="product",
+        entity_id=product.id
+    )
+
 
 
 class ProductComboComponent(SQLModel):
@@ -260,6 +332,17 @@ def register_shrinkage(payload: ShrinkageCreate, session: Session = Depends(get_
     try:
         session.commit()
         session.refresh(shrinkage)
+        
+        fire_audit_log(
+            module="inventory",
+            action="STOCK_ADJUST",
+            description=f"Registro de merma para '{product.name}' ({product.sku}). Pérdida: ${loss:.2f}. Cantidad: {payload.quantity}",
+            severity="WARNING",
+            entity_name="product",
+            entity_id=product.id,
+            metadata={"quantity": payload.quantity, "reason": payload.reason, "cost_loss_usd": loss}
+        )
+        
         return shrinkage
     except Exception as e:
         session.rollback()
@@ -270,4 +353,65 @@ def get_shrinkage_history(session: Session = Depends(get_session)):
     statement = select(InventoryShrinkage).order_by(InventoryShrinkage.created_at.desc())
     results = session.exec(statement).all()
     return results
+
+@router.post("/adjust-stock", status_code=status.HTTP_200_OK)
+def adjust_stock(payload: StockAdjustmentDTO, session: Session = Depends(get_session)):
+    """
+    Realiza un ajuste manual de inventario, registrándolo en Kardex y auditando el evento inmutable.
+    """
+    product = session.get(Product, payload.product_id)
+    if not product or product.is_deleted:
+        raise ProductNotFoundError(payload.product_id)
+        
+    if product.product_type == ProductType.SERVICE:
+        raise HTTPException(status_code=400, detail="Los servicios no tienen stock físico que ajustar.")
+        
+    old_stock = product.cached_stock_quantity or 0.0
+    new_stock = payload.new_quantity
+    diff = new_stock - old_stock
+    
+    if diff == 0:
+        return {"detail": "No se detectaron cambios en el stock", "product": product}
+        
+    product.cached_stock_quantity = new_stock
+    product.is_synced = False
+    
+    # Registrar la transacción en el Kardex
+    kardex = InventoryTransaction(
+        id=str(uuid4()),
+        product_id=product.id,
+        transaction_type="IN" if diff > 0 else "OUT",
+        reason="MANUAL_ADJUSTMENT",
+        quantity=abs(diff),
+        user_id=None,  # Será recuperado por el contexto de auditoría del HTTP Request
+        created_at=datetime.utcnow()
+    )
+    
+    session.add(product)
+    session.add(kardex)
+    
+    try:
+        session.commit()
+        session.refresh(product)
+        
+        # Auditamos el ajuste manual
+        # El cambio se considera crítico si el volumen de ajuste supera 50 unidades de diferencia
+        severity = "CRITICAL" if abs(diff) >= 50 else "INFO"
+        fire_audit_log(
+            module="inventory",
+            action="STOCK_ADJUST",
+            description=f"Ajuste manual de inventario para '{product.name}' ({product.sku}). Stock previo: {old_stock}, nuevo: {new_stock} ({'+' if diff > 0 else ''}{diff})",
+            severity=severity,
+            entity_name="product",
+            entity_id=product.id,
+            old_values={"stock": old_stock},
+            new_values={"stock": new_stock},
+            metadata={"justification": payload.justification, "difference": diff}
+        )
+        
+        return {"detail": "Ajuste de inventario realizado correctamente", "product": product}
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Transaction failed: {str(e)}")
+
 

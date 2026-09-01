@@ -14,6 +14,9 @@ from local_backend.api.routers.purchases import router as purchases_router
 from local_backend.api.routers.sales import router as sales_router
 from local_backend.api.routers.cash_register import router as cash_register_router
 from local_backend.api.routers.reports import router as reports_router
+from local_backend.api.routers.audit import router as audit_router
+from local_backend.api.routers.supervisor_auth import router as supervisor_auth_router
+
 
 from contextlib import asynccontextmanager
 
@@ -29,6 +32,8 @@ async def lifespan(app: FastAPI):
     yield
     print("[PYTHON] Shutting down local backend lifecycle...")
 
+
+from local_backend.api.utils.audit_middleware import AuditMiddleware
 
 app = FastAPI(
     title="Xion POS Local API",
@@ -54,6 +59,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(AuditMiddleware)
+
+
 app.include_router(system_router, prefix="/api/v1")
 app.include_router(inventory_router, prefix="/api/v1")
 app.include_router(clients_router, prefix="/api/v1")
@@ -63,6 +71,9 @@ app.include_router(purchases_router, prefix="/api/v1")
 app.include_router(sales_router, prefix="/api/v1")
 app.include_router(cash_register_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
+app.include_router(audit_router, prefix="/api/v1")
+app.include_router(supervisor_auth_router, prefix="/api/v1")
+
 
 
 @app.get("/api/v1/health")

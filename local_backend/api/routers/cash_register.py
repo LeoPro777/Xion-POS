@@ -1,6 +1,7 @@
 # filepath: local_backend/api/routers/cash_register.py
 import json
 import os
+import asyncio
 from datetime import datetime, UTC
 from typing import List, Optional, Dict
 from uuid import uuid4
@@ -12,8 +13,13 @@ from sqlmodel import Session, select, func
 from local_backend.core.database import get_session
 from local_backend.core.models import CashSession, User, Sale, SalePayment
 from local_backend.api.utils.pdf_generator import generate_closing_report_pdf
+from local_backend.api.utils.audit_service import log_event, fire_audit_log
 
 router = APIRouter(prefix="/cash-register", tags=["Cash Register"])
+
+class DrawerOpenDTO(BaseModel):
+    reason: str
+
 
 class SessionOpenDTO(BaseModel):
     user_id: str
@@ -106,7 +112,20 @@ def open_session(payload: SessionOpenDTO, session: Session = Depends(get_session
     session.add(new_session)
     session.commit()
     session.refresh(new_session)
+    
+    # Auditamos la apertura de caja
+    fire_audit_log(
+        module="cash_register",
+        action="OPEN",
+        description=f"Apertura de caja por {new_session.user_name} con balance inicial de ${new_session.opening_balance_usd:.2f}",
+        severity="INFO",
+        entity_name="cash_session",
+        entity_id=new_session.id,
+        new_values={"opening_balance_usd": new_session.opening_balance_usd, "status": "open"}
+    )
+    
     return new_session
+
 
 @router.post("/close", status_code=status.HTTP_200_OK)
 def close_session(payload: SessionCloseDTO, session: Session = Depends(get_session)):
@@ -178,8 +197,44 @@ def close_session(payload: SessionCloseDTO, session: Session = Depends(get_sessi
     session.commit()
     session.refresh(active)
     
+    # Auditamos el cierre de caja
+    fire_audit_log(
+        module="cash_register",
+        action="CLOSE",
+        description=f"Cierre de caja por {active.user_name} con saldo final contado de ${active.closing_balance_usd:.2f}",
+        severity="INFO",
+        entity_name="cash_session",
+        entity_id=active.id,
+        old_values={"status": "open", "opening_balance_usd": active.opening_balance_usd},
+        new_values={
+            "status": "closed",
+            "closing_balance_usd": active.closing_balance_usd,
+            "total_sales_usd": active.total_sales_usd,
+            "total_tax_usd": active.total_tax_usd,
+            "payments_summary": payments_summary
+        }
+    )
+    
     return {
         "detail": "Caja cerrada exitosamente",
         "session": active,
         "report_path": report_path
     }
+
+@router.post("/open-drawer", status_code=status.HTTP_200_OK)
+def open_drawer(payload: DrawerOpenDTO, session: Session = Depends(get_session)):
+    """
+    Simula la apertura física del cajón de dinero y registra la acción en la bitácora de auditoría.
+    Al ser una acción crítica que vulnera el dinero físico, se registra como CRITICAL.
+    """
+    # En producción aquí se enviaría la secuencia ESC/POS a la impresora térmica
+    # para activar el solenoide del cajón de dinero.
+    fire_audit_log(
+        module="cash_register",
+        action="DRAWER_OPEN",
+        description=f"Apertura manual de gaveta de dinero. Motivo: {payload.reason}",
+        severity="CRITICAL",
+        metadata={"reason": payload.reason}
+    )
+    return {"detail": "Gaveta de dinero abierta exitosamente"}
+

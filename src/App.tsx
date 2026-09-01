@@ -130,6 +130,20 @@ export default function App() {
     };
   }, []);
 
+  // Restaurar la sesión de usuario activa desde localStorage al arrancar
+  useEffect(() => {
+    const storedUser = localStorage.getItem("xion_user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        setCurrentUser(parsed);
+        setIsAuthenticated(true);
+      } catch (err) {
+        console.error("[App] Error restoring user session:", err);
+      }
+    }
+  }, []);
+
   if (bootState === 'checking') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100 p-4">
@@ -162,7 +176,15 @@ export default function App() {
    * Bypass temporal activo para desarrollo mediante LoginScreen.
    */
   if (!isAuthenticated) {
-    return <LoginScreen onLogin={(user) => { setCurrentUser(user); setIsAuthenticated(true); }} />;
+    return (
+      <LoginScreen 
+        onLogin={(user) => { 
+          localStorage.setItem("xion_user", JSON.stringify(user));
+          setCurrentUser(user); 
+          setIsAuthenticated(true); 
+        }} 
+      />
+    );
   }
 
   return (
@@ -171,6 +193,7 @@ export default function App() {
         currentUser={currentUser}
         onLogout={() => {
           console.log("Cerrando sesión...");
+          localStorage.removeItem("xion_user");
           setCurrentUser(null);
           setIsAuthenticated(false); 
         }} 
@@ -179,3 +202,4 @@ export default function App() {
     </>
   );
 }
+

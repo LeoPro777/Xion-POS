@@ -19,6 +19,7 @@ import { SettingsModule } from "./settings-module"
 import { ReportsModule } from "./reports-module"
 import { AccountModule } from "./account-module"
 import { ProfileModule } from "./profile-module"
+import { AuditLogModule } from "./audit-log-module"
 
 interface DashboardScreenProps {
   onLogout: () => void
@@ -48,6 +49,8 @@ export function DashboardScreen({ onLogout, currentUser }: DashboardScreenProps)
         return <SuppliersModule />
       case "Reportes":
         return <ReportsModule />
+      case "Auditoría":
+        return <AuditLogModule />
       case "Configuraciones":
         return <SettingsModule />
       case "Preferencias":
@@ -72,7 +75,8 @@ export function DashboardScreen({ onLogout, currentUser }: DashboardScreenProps)
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
       {/* Sidebar */}
-      <DashboardSidebar activeItem={activeNav} onItemClick={setActiveNav} />
+      <DashboardSidebar activeItem={activeNav} onItemClick={setActiveNav} currentUser={currentUser} />
+
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">

@@ -81,6 +81,8 @@ class SystemConfig(SQLModel, table=True):
     # Custom Payment Methods as JSON
     payment_methods_json: str = Field(default='[]', nullable=False)
     
+    # Permisión de stock negativo en modo offline (Regla de negocio)
+    allow_negative_stock: bool = Field(default=False, nullable=False)
     
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
@@ -261,4 +263,54 @@ class InventoryTransaction(SQLModel, table=True):
     reference_id: Optional[str] = Field(default=None, index=True) # ID de Sale, Purchase o Shrinkage
     user_id: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class AuditLog(SQLModel, table=True):
+    """
+    Modelo para la bitácora y auditoría inmutable de eventos.
+    Almacena información detallada del Quién, Qué, Cuándo, Dónde, Cómo y Por qué de cada acción crítica.
+    """
+    __tablename__: str = "audit_logs"
+
+    id: Optional[int] = Field(default=None, primary_key=True, index=True)
+    timestamp: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    user_id: Optional[str] = Field(default=None, index=True)
+    username: str = Field(default="SYSTEM", nullable=False)
+    user_role: Optional[str] = Field(default=None)
+    module: str = Field(nullable=False, index=True)              # 'sales', 'inventory', 'cash_register', 'users', 'system'
+    action: str = Field(nullable=False, index=True)              # 'CREATE', 'UPDATE', 'DELETE', 'AUTH', 'OVERRIDE', 'EXPORT'
+    severity: str = Field(default="INFO", nullable=False, index=True)  # 'INFO', 'WARNING', 'CRITICAL'
+    entity_name: Optional[str] = Field(default=None, index=True)  # 'sale', 'product', 'cash_session', 'system_config'
+    entity_id: Optional[str] = Field(default=None, index=True)
+    ip_address: Optional[str] = Field(default=None)
+    endpoint: Optional[str] = Field(default=None)
+    http_method: Optional[str] = Field(default=None)
+    description: str = Field(nullable=False)
+    old_values: Optional[str] = Field(default=None)              # JSON serializado a string para SQLite
+    new_values: Optional[str] = Field(default=None)              # JSON serializado a string para SQLite
+    metadata_json: Optional[str] = Field(default=None)           # JSON serializado a string (evita colisión con metadata de SQLModel)
+
+
+class SupervisorAuthCode(SQLModel, table=True):
+    """
+    Guarda los códigos de autorización de supervisor de forma cifrada (hash SHA-256 + salt).
+    Permite asociar a un supervisor con un prefijo público para identificación en UI y auditorías.
+    """
+    __tablename__: str = "supervisor_auth_codes"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: str = Field(nullable=False, unique=True, foreign_key="user.id", index=True)
+    code_hash: str = Field(nullable=False)                       # Hash seguro (code + salt)
+    salt: str = Field(nullable=False)                            # Salt aleatorio único
+    code_prefix: str = Field(max_length=4, nullable=False)           # Primeros 3 caracteres legibles
+    qr_payload_version: str = Field(default="v1", max_length=10)
+    is_active: bool = Field(default=True, index=True)
+    max_uses: Optional[int] = Field(default=None, nullable=True) # Límite de usos opcional
+    times_used: int = Field(default=0, nullable=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    expires_at: Optional[datetime] = Field(default=None, nullable=True)
+    last_used_at: Optional[datetime] = Field(default=None, nullable=True)
+    revoked_at: Optional[datetime] = Field(default=None, nullable=True)
+
+
 

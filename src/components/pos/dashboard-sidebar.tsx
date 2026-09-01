@@ -16,30 +16,36 @@ import {
   HelpCircle,
   Settings,
   Palette,
+  ShieldCheck, // Icono para auditoría
 } from "lucide-react"
 import { useState } from "react"
 
 // Vite Injected Version
 declare const __APP_VERSION__: string;
 
-const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard" },
-  { icon: ShoppingCart, label: "Ventas" },
-  { icon: Truck, label: "Compras" },
-  { icon: Package, label: "Inventario" },
-  { icon: Users, label: "Usuarios" },
-  { icon: UserCircle, label: "Clientes" },
-  { icon: Building2, label: "Proveedores" },
-  { icon: BarChart3, label: "Reportes" },
-]
-
 interface DashboardSidebarProps {
   activeItem: string
   onItemClick: (label: string) => void
+  currentUser?: any
 }
 
-export function DashboardSidebar({ activeItem, onItemClick }: DashboardSidebarProps) {
+export function DashboardSidebar({ activeItem, onItemClick, currentUser }: DashboardSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+
+  const isAuthorized = currentUser?.role === "admin" || currentUser?.role === "manager";
+
+  const navItems = [
+    { icon: LayoutDashboard, label: "Dashboard" },
+    { icon: ShoppingCart, label: "Ventas" },
+    { icon: Truck, label: "Compras" },
+    { icon: Package, label: "Inventario" },
+    { icon: Users, label: "Usuarios" },
+    { icon: UserCircle, label: "Clientes" },
+    { icon: Building2, label: "Proveedores" },
+    { icon: BarChart3, label: "Reportes" },
+    ...(isAuthorized ? [{ icon: ShieldCheck, label: "Auditoría" }] : []),
+  ]
+
 
   return (
     <aside

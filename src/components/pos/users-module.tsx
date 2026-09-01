@@ -12,9 +12,9 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,6 +45,7 @@ import {
   Users as UsersIcon,
   UserCog,
   Check,
+  QrCode, // Para credenciales
 } from "lucide-react"
 
 import {
@@ -55,6 +56,8 @@ import {
   User,
 } from "@/hooks/queries/use-users"
 import { toast } from "sonner"
+import { SupervisorBadge } from "./supervisor-badge"
+
 
 const userSchema = z.object({
   name: z.string().min(2, "El nombre es obligatorio"),
@@ -87,6 +90,13 @@ export function UsersModule() {
   const [searchQuery, setSearchQuery] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [badgeUser, setBadgeUser] = useState<User | null>(null)
+  const [isBadgeOpen, setIsBadgeOpen] = useState(false)
+
+  const handleShowBadge = (user: User) => {
+    setBadgeUser(user)
+    setIsBadgeOpen(true)
+  }
 
   const { data: users = [] } = useUsers()
   const createMutation = useCreateUser()
@@ -321,6 +331,17 @@ export function UsersModule() {
                 </TableCell>
                 <TableCell className="text-right pr-4">
                   <div className="flex justify-end gap-1">
+                    {(user.role === "admin" || user.role === "manager") && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-primary/10 hover:text-primary"
+                        onClick={() => handleShowBadge(user)}
+                        title="Ver Credencial QR de Supervisor"
+                      >
+                        <QrCode className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="hover:bg-primary/10 hover:text-primary" onClick={() => handleOpenDialog(user)}>
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -341,6 +362,28 @@ export function UsersModule() {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Dialog Credencial Supervisor */}
+      <Dialog open={isBadgeOpen} onOpenChange={setIsBadgeOpen}>
+        <DialogContent className="max-w-md border-border/50 shadow-2xl rounded-2xl bg-card">
+          <DialogHeader className="pb-3 border-b border-border/50 text-center">
+            <DialogTitle className="text-xl font-bold text-foreground">
+              Credencial de Aprobación
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Visualización de la credencial de autorización y código QR del supervisor seleccionado.
+            </DialogDescription>
+          </DialogHeader>
+          {badgeUser && (
+            <SupervisorBadge
+              userId={badgeUser.id}
+              userName={badgeUser.name}
+              userRole={badgeUser.role}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
 
       {/* Add/Edit Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

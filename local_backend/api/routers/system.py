@@ -1,4 +1,5 @@
 import json
+import asyncio
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -7,6 +8,7 @@ from sqlmodel import Session, select, func
 
 from local_backend.core.database import get_session, get_system_config
 from local_backend.core.models import SystemConfig, CashSession, SalePayment
+from local_backend.api.utils.audit_service import log_event, fire_audit_log
 
 router = APIRouter(prefix="/system", tags=["System"])
 
@@ -92,6 +94,12 @@ def update_exchange_rate(
 ) -> Dict[str, Any]:
     try:
         config = get_system_config(session)
+        
+        # Guardar snapshots previos
+        old_rate = config.current_exchange_rate_bs
+        old_lock = config.lockdown_mode
+        old_curr = config.anchor_currency
+        
         config.anchor_currency = body.anchor_currency
         config.current_exchange_rate_bs = body.current_exchange_rate_bs
         config.lockdown_mode = body.lockdown_mode
@@ -99,12 +107,25 @@ def update_exchange_rate(
         session.commit()
         session.refresh(config)
 
+        # Auditamos el cambio de tasa de cambio
+        fire_audit_log(
+            module="system",
+            action="UPDATE",
+            description=f"Cambio de tasa de cambio de Bs. {old_rate:.2f} a Bs. {config.current_exchange_rate_bs:.2f}",
+            severity="CRITICAL",
+            entity_name="system_config",
+            entity_id=str(config.id),
+            old_values={"exchange_rate": old_rate, "lockdown_mode": old_lock, "anchor_currency": old_curr},
+            new_values={"exchange_rate": config.current_exchange_rate_bs, "lockdown_mode": config.lockdown_mode, "anchor_currency": config.anchor_currency}
+        )
+
         return {
             "status": "updated",
             "anchor_currency": config.anchor_currency,
             "current_exchange_rate_bs": config.current_exchange_rate_bs,
             "lockdown_mode": config.lockdown_mode,
         }
+
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to update exchange rate: {str(exc)}")
 
@@ -145,6 +166,10 @@ def update_system_config(
                     print(f"DEBUG: Eliminación permitida para ID: {rid} (Balance: {total_usage})")
 
         update_data = body.dict(exclude_unset=True)
+        
+        # Guardar snapshots previos
+        old_values = {k: getattr(config, k) for k in update_data.keys() if hasattr(config, k)}
+        
         for key, value in update_data.items():
             setattr(config, key, value)
             
@@ -152,10 +177,29 @@ def update_system_config(
         session.commit()
         session.refresh(config)
 
+        new_values = {k: getattr(config, k) for k in update_data.keys() if hasattr(config, k)}
+        
+        # Determinar severidad crítica si se activa modo confinamiento o se altera tasa de cambio
+        severity = "INFO"
+        if "lockdown_mode" in update_data or "current_exchange_rate_bs" in update_data or "allow_negative_stock" in update_data:
+            severity = "CRITICAL"
+            
+        fire_audit_log(
+            module="system",
+            action="UPDATE",
+            description="Actualización de configuración del sistema",
+            severity=severity,
+            entity_name="system_config",
+            entity_id=str(config.id),
+            old_values=old_values,
+            new_values=new_values
+        )
+
         return {
             "status": "updated",
             "detail": "System configuration updated successfully."
         }
+
     except HTTPException as http_exc:
         raise http_exc
     except Exception as exc:
