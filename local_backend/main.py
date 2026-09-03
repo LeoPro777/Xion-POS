@@ -2,6 +2,7 @@ import sys
 import os
 
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 from local_backend.core.database import init_db, get_session
@@ -60,6 +61,13 @@ app.add_middleware(
 )
 
 app.add_middleware(AuditMiddleware)
+
+# Setup static files for images
+import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_DIR = os.path.join(BASE_DIR, "data", "uploads", "products")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/static/products", StaticFiles(directory=UPLOAD_DIR), name="product_images")
 
 
 app.include_router(system_router, prefix="/api/v1")

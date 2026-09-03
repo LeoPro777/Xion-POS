@@ -18,6 +18,16 @@ class TaxType(str, Enum):
     VAT = "vat"
     ISLR = "islr"
 
+class Category(SQLModel, table=True):
+    __tablename__: str = "categories"
+
+    id: Optional[str] = Field(default=None, primary_key=True, index=True)
+    name: str = Field(nullable=False, index=True)
+    slug: Optional[str] = Field(default=None, unique=True, index=True)
+    parent_id: Optional[str] = Field(default=None, foreign_key="categories.id")
+    google_taxonomy_id: Optional[int] = None
+    is_active: bool = Field(default=True)
+
 
 class Product(SQLModel, table=True):
     id: Optional[str] = Field(default=None, primary_key=True, index=True)
@@ -25,7 +35,8 @@ class Product(SQLModel, table=True):
     barcode: Optional[str] = None
     name: str = Field(nullable=False)
     description: Optional[str] = None
-    category_id: Optional[str] = None
+    category_id: Optional[str] = Field(default=None, foreign_key="categories.id")
+    image_id: Optional[str] = Field(default=None, index=True, max_length=32)
     cost_usd: float = Field(default=0.0, nullable=False)
     price_usd: float = Field(default=0.0, nullable=False)
     product_type: ProductType = Field(default=ProductType.PHYSICAL)
@@ -35,7 +46,6 @@ class Product(SQLModel, table=True):
     package_quantity: int = Field(default=1)
     cached_stock_quantity: float = Field(default=0.0)
     min_stock_alert: float = Field(default=0.0)
-    tags: Optional[str] = Field(default=None, index=True)
     is_synced: bool = Field(default=False)
     is_deleted: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)

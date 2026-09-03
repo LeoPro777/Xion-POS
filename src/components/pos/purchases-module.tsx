@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,8 +22,11 @@ import {
   FileText,
   Building2,
   Box,
-  LayoutGrid
+  LayoutGrid,
+  List
 } from "lucide-react"
+
+import { ProductImage } from "./product-image"
 
 import { useProducts, Product } from "@/hooks/queries/use-inventory"
 import { useSuppliers, Supplier } from "@/hooks/queries/use-suppliers"
@@ -57,6 +60,20 @@ export function PurchasesModule() {
   const [searchTerm, setSearchTerm] = useState("")
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([])
   const [supplierName, setSupplierName] = useState("")
+
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards")
+
+  useEffect(() => {
+    const saved = localStorage.getItem("purchases_view_preference")
+    if (saved === "list" || saved === "cards") {
+      setViewMode(saved)
+    }
+  }, [])
+
+  const toggleViewMode = (mode: "cards" | "list") => {
+    setViewMode(mode)
+    localStorage.setItem("purchases_view_preference", mode)
+  }
 
   const { data: dbProducts = [], isLoading: isLoadingProducts } = useProducts()
   const { data: dbSuppliers = [], isLoading: isLoadingSuppliers } = useSuppliers()
@@ -256,7 +273,24 @@ export function PurchasesModule() {
               className="h-9 rounded-md border-2 border-border/60 bg-muted/40 pl-9 text-xs focus-visible:ring-primary/40 shadow-none transition-colors hover:bg-muted/60"
             />
           </div>
-          
+          <div className="flex bg-muted rounded p-0.5 border border-border/50">
+            <Button
+              variant={viewMode === "cards" ? "default" : "ghost"}
+              size="icon"
+              className="h-7 w-7 rounded-sm"
+              onClick={() => toggleViewMode("cards")}
+            >
+              <LayoutGrid className="h-3 w-3" />
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="icon"
+              className="h-7 w-7 rounded-sm"
+              onClick={() => toggleViewMode("list")}
+            >
+              <List className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
 
         {/* Grilla de Productos */}
@@ -273,7 +307,7 @@ export function PurchasesModule() {
               <PackageSearch className="h-8 w-8 text-muted-foreground" />
               <p className="text-xs font-semibold tracking-wide">Búsqueda sin resultados</p>
             </div>
-          ) : (
+          ) : viewMode === "cards" ? (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-2">
               {filteredProducts.map((product) => (
                 <Card
@@ -294,8 +328,8 @@ export function PurchasesModule() {
                     </span>
                   </div>
 
-                  <div className="flex-1 bg-muted/10 w-full flex items-center justify-center relative border-b border-border/40">
-                     <PackageSearch className="h-6 w-6 text-muted-foreground/30 group-hover:scale-125 transition-transform duration-200" />
+                  <div className="flex-1 bg-muted/10 w-full flex items-center justify-center relative border-b border-border/40 p-0 overflow-hidden">
+                     <ProductImage imageId={product.image_id as any} productName={product.name} categoryName={product.category_id || 'GEN'} className="w-full h-full object-cover rounded-t-lg group-hover:scale-105 transition-transform duration-300" size="thumb" />
                      <div className="absolute bottom-1 right-1 bg-primary text-primary-foreground text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">
                         ${product.cost_usd.toFixed(2)}
                      </div>
@@ -310,6 +344,27 @@ export function PurchasesModule() {
                      </p>
                   </CardContent>
                 </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {filteredProducts.map(product => (
+                <div key={product.id} onClick={() => addToPurchase(product)} className="flex items-center gap-2 p-1.5 bg-card border border-border/50 rounded-lg hover:border-primary/50 cursor-pointer">
+                  <div className="w-8 h-8 rounded bg-muted/30 overflow-hidden shrink-0 border border-border/50">
+                    <ProductImage imageId={product.image_id as any} productName={product.name} categoryName={product.category_id || 'GEN'} size="thumb" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-[10px] font-bold truncate leading-none">{product.name}</h4>
+                    <p className="text-[9px] font-mono text-muted-foreground">{product.sku}</p>
+                  </div>
+                  <div className="flex flex-col items-end shrink-0">
+                    <span className="text-[10px] font-black">${product.cost_usd.toFixed(2)}</span>
+                    <span className={cn("text-[9px] font-bold", product.cached_stock_quantity <= product.min_stock_alert ? "text-destructive" : "text-muted-foreground")}>STK: {product.cached_stock_quantity}</span>
+                  </div>
+                  <div className="shrink-0 w-5 flex justify-end">
+                    <Button variant="ghost" size="icon" className="h-5 w-5 text-primary hover:bg-primary/10 rounded-full"><Plus className="h-3 w-3" /></Button>
+                  </div>
+                </div>
               ))}
             </div>
           )}

@@ -7,3 +7,4 @@ pytest
 requests
 reportlab
 pillow
+python-multipart

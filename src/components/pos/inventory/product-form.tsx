@@ -6,6 +6,7 @@ import { localApiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 import { Button, Input, Checkbox, Select } from "@/components/ui"; // Asume exportaciones limpias
 import { Plus, Trash2 } from "lucide-react";
+import { CategoryCombobox } from "./category-combobox";
 
 export function ProductForm({ onSuccess }: { onSuccess?: () => void }) {
   const queryClient = useQueryClient();
@@ -52,11 +53,12 @@ export function ProductForm({ onSuccess }: { onSuccess?: () => void }) {
   const onSubmit = (data: ProductFormValues) => {
     // Generate SKU if not barcode exists and map camelCase to snake_case
     const generatedSku = data.barcode || `${data.name.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`;
-    
+
     const payload = {
       sku: generatedSku,
       name: data.name,
       barcode: data.barcode || null,
+      category_id: data.categoryId || null,
       price_usd: data.priceUsd,
       cost_usd: data.costUsd,
       wholesale_price_usd: data.wholesalePriceUsd,
@@ -87,6 +89,13 @@ export function ProductForm({ onSuccess }: { onSuccess?: () => void }) {
           <label className="text-sm font-medium">Name</label>
           <Input {...form.register("name")} placeholder="Nombre del producto" />
         </div>
+        <div className="col-span-2">
+          <label className="text-sm font-medium">Category</label>
+          <CategoryCombobox 
+            value={form.watch("categoryId")} 
+            onChange={(val) => form.setValue("categoryId", val)} 
+          />
+        </div>
 
         {/* The Anchor Currency - USD */}
         <div>
@@ -112,8 +121,8 @@ export function ProductForm({ onSuccess }: { onSuccess?: () => void }) {
       <div className="flex items-center gap-6 p-4 bg-muted/50 rounded-lg border">
         <div className="flex-1">
           <label className="text-sm font-medium">Inventory Type</label>
-          <select 
-            {...form.register("type")} 
+          <select
+            {...form.register("type")}
             className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
           >
             <option value="physical">Physical</option>
@@ -122,10 +131,10 @@ export function ProductForm({ onSuccess }: { onSuccess?: () => void }) {
           </select>
         </div>
         <div className="flex items-center space-x-2 pt-6">
-          <Checkbox 
-            id="hasVat" 
-            checked={form.watch("hasVat")} 
-            onCheckedChange={(val) => form.setValue("hasVat", val as boolean)} 
+          <Checkbox
+            id="hasVat"
+            checked={form.watch("hasVat")}
+            onCheckedChange={(val) => form.setValue("hasVat", val as boolean)}
           />
           <label htmlFor="hasVat" className="text-sm font-medium leading-none">
             Charge VAT (IVA)

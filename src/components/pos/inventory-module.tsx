@@ -44,7 +44,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
-import { Search, Plus, Edit, Trash2, Tag, Box, Layers, DollarSign, Info, ListChecks, ShoppingBag, FileSpreadsheet, Download, AlertCircle, TrendingDown } from "lucide-react"
+import { Search, Plus, Edit, Trash2, Tag, Box, Layers, DollarSign, Info, ListChecks, ShoppingBag, FileSpreadsheet, Download, AlertCircle, TrendingDown, LayoutGrid, List, ImagePlus, Upload, X } from "lucide-react"
+import { ProductImage } from "./product-image"
+import { CategoryCombobox } from "./inventory/category-combobox"
 
 import { localApiClient } from "@/lib/api-client"
 import { useQueryClient, useMutation } from "@tanstack/react-query"
@@ -65,7 +67,7 @@ const productSchema = z.object({
   name: z.string().min(2, "El nombre es obligatorio"),
   barcode: z.string().optional(),
   description: z.string().optional(),
-  tags: z.string().optional(),
+  category_id: z.string().optional(),
   cost_usd: z.coerce.number().min(0, "Debe ser mayor o igual a 0"),
   price_usd: z.coerce.number().min(0, "Debe ser mayor o igual a 0"),
   wholesale_price_usd: z.coerce.number().min(0, "Debe ser mayor o igual a 0").default(0),
@@ -87,12 +89,30 @@ export function InventoryModule() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isExcelDialogOpen, setIsExcelDialogOpen] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
-  const [alertConfig, setAlertConfig] = useState<{title: string, description: string, errors: string[]} | null>(null)
+  const [alertConfig, setAlertConfig] = useState<{ title: string, description: string, errors: string[] } | null>(null)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isShrinkageDialogOpen, setIsShrinkageDialogOpen] = useState(false)
   const [shrinkageProduct, setShrinkageProduct] = useState<Product | null>(null)
   const [shrinkageQuantity, setShrinkageQuantity] = useState("")
   const [shrinkageReason, setShrinkageReason] = useState("Dañado/Vencido")
+
+  const [viewMode, setViewMode] = useState<"cards" | "list">("list")
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  useEffect(() => {
+    const saved = localStorage.getItem("inventory_view_preference")
+    if (saved === "list" || saved === "cards") {
+      setViewMode(saved)
+    }
+  }, [])
+
+  const toggleViewMode = (mode: "cards" | "list") => {
+    setViewMode(mode)
+    localStorage.setItem("inventory_view_preference", mode)
+  }
+
 
   const queryClient = useQueryClient()
   const { data: products = [] } = useProducts()
@@ -124,8 +144,7 @@ export function InventoryModule() {
     (product) =>
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.barcode || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.tags || "").split(',').some(tag => tag.trim().toLowerCase().includes(searchQuery.toLowerCase()))
+      (product.barcode || "").toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const form = useForm<ProductFormValues>({
@@ -135,7 +154,7 @@ export function InventoryModule() {
       sku: "",
       barcode: "",
       description: "",
-      tags: "",
+      category_id: "",
       cost_usd: 0,
       price_usd: 0,
       wholesale_price_usd: 0,
@@ -158,7 +177,7 @@ export function InventoryModule() {
   const watchCost = form.watch("cost_usd") || 0
   const watchPrice = form.watch("price_usd") || 0
   const watchWholesalePrice = form.watch("wholesale_price_usd") || 0
-  
+
   const isVirtual = watchProductType === "virtual"
   const isService = watchProductType === "service"
   const profitMargin = watchPrice > 0 ? ((watchPrice - watchCost) / watchPrice) * 100 : 0
@@ -178,10 +197,10 @@ export function InventoryModule() {
   // Cálculo de stock proyectado para combos (referencia visual)
   const projectedComboStock = isVirtual && watchComboItems && watchComboItems.length > 0
     ? Math.floor(Math.min(...watchComboItems.map(item => {
-        const product = products.find(p => p.id === item.product_id)
-        if (!product || item.quantity <= 0) return 0
-        return product.cached_stock_quantity / item.quantity
-      })))
+      const product = products.find(p => p.id === item.product_id)
+      if (!product || item.quantity <= 0) return 0
+      return product.cached_stock_quantity / item.quantity
+    })))
     : 0
 
   const downloadExcelTemplate = () => {
@@ -230,11 +249,11 @@ export function InventoryModule() {
           try {
             if (!row.Nombre) throw new Error("Falta el campo obligatorio: Nombre")
             if (row.PrecioVenta_USD === undefined || isNaN(Number(row.PrecioVenta_USD))) throw new Error("PrecioVenta_USD inválido o vacío")
-            
-            const sku = row.SKU ? String(row.SKU) : `EX-${Date.now().toString().slice(-6)}-${Math.floor(Math.random()*1000)}`
+
+            const sku = row.SKU ? String(row.SKU) : `EX-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`
             const rawType = String(row.TipoProducto || "Fisico").toLowerCase()
             const mappedType = rawType.includes("serv") ? "service" : "physical"
-            
+
             const rawTax = String(row.RegimenFiscal || "Exento").toLowerCase()
             const mappedTax = rawTax.includes("iva") ? "vat" : rawTax.includes("islr") ? "islr" : "none"
 
@@ -243,7 +262,6 @@ export function InventoryModule() {
               sku: sku,
               barcode: row.CodigoBarras ? String(row.CodigoBarras) : null,
               description: row.Descripcion ? String(row.Descripcion) : "",
-              tags: row.CategoriasEtiquetas ? String(row.CategoriasEtiquetas) : "",
               cost_usd: Number(row.Costo_USD) || 0,
               price_usd: Number(row.PrecioVenta_USD),
               wholesale_price_usd: Number(row.PrecioMayorista_USD) || 0,
@@ -258,31 +276,31 @@ export function InventoryModule() {
             newErrors.push(`Fila [${rowIndex}]: ${err.message}`)
           }
         }
-        
+
         // Fase 2: Ejecución Condicionada (Todo o Nada)
         if (newErrors.length > 0) {
-           setIsExcelDialogOpen(false) // Cerrar el modal excel
-           setAlertConfig({
-             title: "Error de Importación",
-             description: "El archivo Excel no pudo ser cargado porque presenta irregularidades. Por protección de datos, hemos abortado completamente la importación y ningún producto fue guardado.",
-             errors: newErrors
-           })
-           toast.error(`Importación abortada. Se identificaron ${newErrors.length} errores críticos.`)
-           // Al haber errores, NO se procesa la insersión a base de datos.
+          setIsExcelDialogOpen(false) // Cerrar el modal excel
+          setAlertConfig({
+            title: "Error de Importación",
+            description: "El archivo Excel no pudo ser cargado porque presenta irregularidades. Por protección de datos, hemos abortado completamente la importación y ningún producto fue guardado.",
+            errors: newErrors
+          })
+          toast.error(`Importación abortada. Se identificaron ${newErrors.length} errores críticos.`)
+          // Al haber errores, NO se procesa la insersión a base de datos.
         } else {
-           // Si el archivo es perfecto, procedemos:
-           for (const payload of validPayloads) {
-             await createMutation.mutateAsync(payload)
-           }
-           toast.success(`Importación Impecable: ${validPayloads.length} activos registrados.`)
-           setIsExcelDialogOpen(false)
+          // Si el archivo es perfecto, procedemos:
+          for (const payload of validPayloads) {
+            await createMutation.mutateAsync(payload)
+          }
+          toast.success(`Importación Impecable: ${validPayloads.length} activos registrados.`)
+          setIsExcelDialogOpen(false)
         }
       } catch (error) {
         toast.error("El archivo Excel está corrupto o es irreconocible.")
         setAlertConfig({
-           title: "Archivo Dañado",
-           description: "El documento seleccionado no puede procesarse porque está corrupto o no tiene estructura binaria reconocible.",
-           errors: ["Error fatal al intentar leer el buffer Base64/XLSX del archivo."]
+          title: "Archivo Dañado",
+          description: "El documento seleccionado no puede procesarse porque está corrupto o no tiene estructura binaria reconocible.",
+          errors: ["Error fatal al intentar leer el buffer Base64/XLSX del archivo."]
         })
       } finally {
         setIsImporting(false)
@@ -292,6 +310,9 @@ export function InventoryModule() {
   }
 
   const handleOpenDialog = async (product?: Product) => {
+    setImageFile(null)
+    setImagePreviewUrl(null)
+    setIsDragging(false)
     form.reset()
     if (product) {
       setEditingProduct(product)
@@ -299,7 +320,7 @@ export function InventoryModule() {
       form.setValue("sku", product.sku)
       form.setValue("barcode", product.barcode || "")
       form.setValue("description", product.description || "")
-      form.setValue("tags", product.tags || "")
+      form.setValue("category_id", product.category_id || "")
       form.setValue("cost_usd", product.cost_usd)
       form.setValue("price_usd", product.price_usd)
       form.setValue("wholesale_price_usd", product.wholesale_price_usd || 0)
@@ -308,7 +329,7 @@ export function InventoryModule() {
       form.setValue("product_type", product.product_type)
       form.setValue("tax_type", product.tax_type)
       form.setValue("unit_measure", product.unit_measure)
-      
+
       if (product.product_type === "virtual") {
         try {
           const { data } = await localApiClient.get<{ child_id: string; quantity_required: number }[]>(`/inventory/products/${product.id}/components`)
@@ -326,7 +347,7 @@ export function InventoryModule() {
         sku: "",
         barcode: "",
         description: "",
-        tags: "",
+        category_id: "",
         cost_usd: 0,
         price_usd: 0,
         wholesale_price_usd: 0,
@@ -355,35 +376,52 @@ export function InventoryModule() {
       if (editingProduct) {
         const { combo_items, ...updatePayload } = data
         if (updatePayload.product_type === "service") {
-            updatePayload.min_stock_alert = 0
-            updatePayload.cost_usd = 0 
+          updatePayload.min_stock_alert = 0
+          updatePayload.cost_usd = 0
         }
         await updateMutation.mutateAsync({ id: editingProduct.id, data: updatePayload })
-        
+
         if (isVirtual && combo_items) {
           const normalized = combo_items.map((c) => ({ child_id: c.product_id, quantity_required: c.quantity }))
           await localApiClient.put(`/inventory/products/${editingProduct.id}/components`, normalized)
         }
+
+        if (imageFile) {
+          const formData = new FormData();
+          formData.append("file", imageFile);
+          await localApiClient.post(`/inventory/products/${editingProduct.id}/image`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["inventory"] })
         toast.success("Producto modificado correctamente")
       } else {
         const payload = {
-            ...data,
-            combo_items: isVirtual ? data.combo_items : undefined,
-            min_stock_alert: isService ? 0 : data.min_stock_alert,
-            cost_usd: isService ? 0 : data.cost_usd
+          ...data,
+          combo_items: isVirtual ? data.combo_items : undefined,
+          min_stock_alert: isService ? 0 : data.min_stock_alert,
+          cost_usd: isService ? 0 : data.cost_usd
         }
-        await createMutation.mutateAsync(payload)
+        const createdProduct = await createMutation.mutateAsync(payload)
+        const newId = createdProduct?.id || createdProduct?.data?.id || (createdProduct as any)?.id
+
+        if (imageFile && newId) {
+          const formData = new FormData();
+          formData.append("file", imageFile);
+          await localApiClient.post(`/inventory/products/${newId}/image`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["inventory"] })
         toast.success("Producto creado exitosamente")
       }
       setIsAddDialogOpen(false)
     } catch (e: any) {
       const msj = e.response?.data?.detail
       const parsedErrors = Array.isArray(msj) ? msj.map((x: any) => typeof x === 'string' ? x : (x.msg || JSON.stringify(x))) : [msj || "Error catastrófico interno en el servidor"]
-      
+
       setAlertConfig({
-         title: "Integridad de Datos",
-         description: "El sistema central de inventario rechazó los datos del formulario debido a que violan las reglas de integridad de la base de datos.",
-         errors: parsedErrors
+        title: "Integridad de Datos",
+        description: "El sistema central de inventario rechazó los datos del formulario debido a que violan las reglas de integridad de la base de datos.",
+        errors: parsedErrors
       })
       toast.error("Formulario rechazado por el servidor.")
     }
@@ -416,8 +454,8 @@ export function InventoryModule() {
     if (!shrinkageProduct) return
 
     if (qty > shrinkageProduct.cached_stock_quantity) {
-       toast.error("La merma no puede ser mayor al stock actual")
-       return
+      toast.error("La merma no puede ser mayor al stock actual")
+      return
     }
 
     shrinkageMutation.mutate({
@@ -435,11 +473,11 @@ export function InventoryModule() {
           <CardContent><div className="flex items-baseline gap-2"><p className="text-3xl font-bold">{products.length}</p><Badge className="bg-primary text-primary-foreground shadow-sm font-bold border-0">Activos</Badge></div></CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm transition-all hover:shadow-md">
-          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-primary"/> Valor Costo</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-primary" /> Valor Costo</CardTitle></CardHeader>
           <CardContent><p className="text-3xl font-bold">${products.reduce((sum, p) => sum + p.cost_usd * p.cached_stock_quantity, 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p><p className="text-sm text-muted-foreground">Bs {(products.reduce((sum, p) => sum + p.cost_usd * p.cached_stock_quantity, 0) * exchangeRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm transition-all hover:shadow-md">
-          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><Layers className="w-5 h-5 text-primary"/> Stock Bajo</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><Layers className="w-5 h-5 text-primary" /> Stock Bajo</CardTitle></CardHeader>
           <CardContent><div className="flex items-baseline gap-2"><p className="text-3xl font-bold">{products.filter((p) => p.cached_stock_quantity <= p.min_stock_alert && p.product_type !== 'service').length}</p><Badge className="bg-primary text-primary-foreground shadow-sm font-bold border-0">Stock bajo</Badge></div></CardContent>
         </Card>
       </div>
@@ -449,10 +487,18 @@ export function InventoryModule() {
           <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Buscar por nombre, SKU, etiquetas..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-12 rounded-xl border-border bg-card pr-4 pl-12 text-base shadow-sm focus-visible:ring-primary/20" />
         </div>
+        <div className="flex bg-muted rounded-xl p-1 border border-border/50">
+          <Button variant={viewMode === "list" ? "default" : "ghost"} size="icon" className="h-10 w-10 rounded-lg" onClick={() => toggleViewMode("list")}>
+            <List className="h-4 w-4" />
+          </Button>
+          <Button variant={viewMode === "cards" ? "default" : "ghost"} size="icon" className="h-10 w-10 rounded-lg" onClick={() => toggleViewMode("cards")}>
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+        </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => setIsExcelDialogOpen(true)} 
+          <Button
+            variant="outline"
+            onClick={() => setIsExcelDialogOpen(true)}
             className="h-12 flex items-center justify-center font-bold rounded-xl border-0 bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-all active:scale-95"
           >
             <FileSpreadsheet className="h-5 w-5 mr-2" />
@@ -462,88 +508,134 @@ export function InventoryModule() {
         </div>
       </div>
 
-      <Card className="flex-1 overflow-hidden border-border/50 shadow-md">
-        <div className="overflow-x-auto h-[calc(100vh-320px)] relative">
-          <Table>
-            <TableHeader className="sticky top-0 bg-secondary/80 backdrop-blur-md z-10">
-              <TableRow>
-                <TableHead>SKU</TableHead>
-                <TableHead>Producto</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead className="text-right">Precio</TableHead>
-                <TableHead className="text-center">Stock</TableHead>
-                <TableHead className="text-right pr-6">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.map((product) => {
-                const isLowStock = product.cached_stock_quantity <= product.min_stock_alert && product.product_type !== "service"
-                return (
-                  <TableRow key={product.id} className="hover:bg-muted/50 transition-colors">
-                    <TableCell className="font-mono text-sm">{product.sku}</TableCell>
-                    <TableCell>
-                      <div className="font-medium text-foreground">{product.name}</div>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {product.barcode && <Badge variant="ghost" className="text-[10px] h-4 px-1 flex items-center gap-1 opacity-70"><Tag className="h-2 w-2" /> {product.barcode}</Badge>}
-                        {product.tags && product.tags.split(',').map((tag, i) => (
-                          <Badge key={i} variant="secondary" className="text-[10px] h-4 px-1">{tag.trim()}</Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-primary text-primary-foreground border-0 shadow-sm font-bold">
-                        {product.product_type === 'physical' ? 'Físico' : product.product_type === 'virtual' ? 'Combo' : 'Servicio'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="font-black text-primary text-sm">${product.price_usd.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        <span className="text-[10px] font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full shadow-sm">Bs {(product.price_usd * exchangeRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {product.product_type === "service" ? (
-                        <span className="text-xs text-muted-foreground">∞ Ilimitado</span>
-                      ) : (
-                        <Badge 
-                          className={cn(
-                            "font-black shadow-sm px-3",
-                            product.cached_stock_quantity === 0 
-                              ? "bg-transparent border-2 border-foreground text-foreground shadow-none" 
-                              : isLowStock 
-                                ? "bg-destructive text-destructive-foreground border-0" 
-                                : "bg-primary text-primary-foreground border-0"
-                          )}
-                        >
-                          {product.cached_stock_quantity} {product.unit_measure}
+      {viewMode === "list" ? (
+        <Card className="flex-1 overflow-hidden border-border/50 shadow-md">
+          <div className="overflow-x-auto h-[calc(100vh-320px)] relative">
+            <Table>
+              <TableHeader className="sticky top-0 bg-secondary/80 backdrop-blur-md z-10">
+                <TableRow>
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Producto</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Precio</TableHead>
+                  <TableHead className="text-center">Stock</TableHead>
+                  <TableHead className="text-right pr-6">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProducts.map((product) => {
+                  const isLowStock = product.cached_stock_quantity <= product.min_stock_alert && product.product_type !== "service"
+                  return (
+                    <TableRow key={product.id} className="hover:bg-muted/50 transition-colors">
+                      <TableCell>
+                        <div className="w-10 h-10 rounded overflow-hidden border border-border/50 bg-background">
+                          <ProductImage imageId={product.image_id as any} productName={product.name} categoryName={product.category_id || 'GEN'} size="thumb" />
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">{product.sku}</TableCell>
+                      <TableCell>
+                        <div className="font-medium text-foreground">{product.name}</div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {product.barcode && <Badge variant="ghost" className="text-[10px] h-4 px-1 flex items-center gap-1 opacity-70"><Tag className="h-2 w-2" /> {product.barcode}</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="bg-primary text-primary-foreground border-0 shadow-sm font-bold">
+                          {product.product_type === 'physical' ? 'Físico' : product.product_type === 'virtual' ? 'Combo' : 'Servicio'}
                         </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right pr-4">
-                      <div className="flex justify-end gap-1">
-                        {product.product_type !== 'service' && (
-                          <Button variant="ghost" size="icon" title="Registrar Merma" onClick={() => handleOpenShrinkage(product)} className="hover:bg-amber-100 hover:text-amber-600">
-                            <TrendingDown className="h-4 w-4" />
-                          </Button>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="font-black text-primary text-sm">${product.price_usd.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="text-[10px] font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full shadow-sm">Bs {(product.price_usd * exchangeRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {product.product_type === "service" ? (
+                          <span className="text-xs text-muted-foreground">∞ Ilimitado</span>
+                        ) : (
+                          <Badge
+                            className={cn(
+                              "font-black shadow-sm px-3",
+                              product.cached_stock_quantity === 0
+                                ? "bg-transparent border-2 border-foreground text-foreground shadow-none"
+                                : isLowStock
+                                  ? "bg-destructive text-destructive-foreground border-0"
+                                  : "bg-primary text-primary-foreground border-0"
+                            )}
+                          >
+                            {product.cached_stock_quantity} {product.unit_measure}
+                          </Badge>
                         )}
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(product)} className="hover:bg-primary/10 hover:text-primary"><Edit className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="hover:bg-destructive/10 text-destructive" onClick={() => handleDelete(product.id)}><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+                      </TableCell>
+                      <TableCell className="text-right pr-4">
+                        <div className="flex justify-end gap-1">
+                          {product.product_type !== 'service' && (
+                            <Button variant="ghost" size="icon" title="Registrar Merma" onClick={() => handleOpenShrinkage(product)} className="hover:bg-amber-100 hover:text-amber-600">
+                              <TrendingDown className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(product)} className="hover:bg-primary/10 hover:text-primary"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="hover:bg-destructive/10 text-destructive" onClick={() => handleDelete(product.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      ) : (
+        <div className="flex-1 overflow-y-auto h-[calc(100vh-320px)] relative pb-6 pr-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {filteredProducts.map(product => (
+              <Card key={product.id} className="overflow-hidden border-border/50 hover:border-primary/50 hover:shadow-md transition-all flex flex-col group">
+                <div className="aspect-square bg-muted/20 relative border-b border-border/50">
+                  <ProductImage imageId={product.image_id as any} productName={product.name} categoryName={product.category_id || 'GEN'} size="medium" />
+                  {product.cached_stock_quantity <= product.min_stock_alert && product.product_type !== 'service' && (
+                    <Badge className="absolute top-2 left-2 bg-destructive text-destructive-foreground border-0 shadow-sm">Stock Bajo</Badge>
+                  )}
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="secondary" size="icon" className="h-7 w-7 bg-background/80 hover:bg-background backdrop-blur-sm shadow-sm text-primary" onClick={() => handleOpenDialog(product)}><Edit className="h-3 w-3" /></Button>
+                    <Button variant="secondary" size="icon" className="h-7 w-7 bg-background/80 hover:bg-background backdrop-blur-sm shadow-sm text-destructive" onClick={() => handleDelete(product.id)}><Trash2 className="h-3 w-3" /></Button>
+                  </div>
+                </div>
+                <CardContent className="p-3 flex-1 flex flex-col gap-1 bg-card">
+                  <div>
+                    <p className="text-[10px] font-mono text-muted-foreground">{product.sku}</p>
+                    <h3 className="font-bold text-sm line-clamp-2 leading-tight group-hover:text-primary transition-colors">{product.name}</h3>
+                  </div>
+                  <div className="mt-auto pt-2 flex items-end justify-between border-t border-border/30">
+                    <div>
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Precio</p>
+                      <p className="font-black text-primary text-base leading-none">${product.price_usd.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Stock</p>
+                      {product.product_type === "service" ? (
+                        <p className="font-black text-sm leading-none text-muted-foreground">∞</p>
+                      ) : (
+                        <p className={cn("font-black text-sm leading-none", product.cached_stock_quantity <= product.min_stock_alert ? "text-destructive" : "text-foreground")}>
+                          {product.cached_stock_quantity}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
-      </Card>
+      )}
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-0 gap-0 shadow-2xl rounded-2xl border-0">
           <DialogHeader className="p-6 bg-primary/5 border-b border-border sticky top-0 z-10 backdrop-blur-sm">
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
               <span className="p-2 rounded-lg bg-primary/10 text-primary">
-                {editingProduct ? <Edit className="h-5 w-5"/> : <ShoppingBag className="h-5 w-5"/>}
+                {editingProduct ? <Edit className="h-5 w-5" /> : <ShoppingBag className="h-5 w-5" />}
               </span>
               {editingProduct ? "Edición de Producto" : "Registro de nuevo producto"}
             </DialogTitle>
@@ -551,17 +643,94 @@ export function InventoryModule() {
               Formulario para {editingProduct ? "editar" : "registrar"} un producto en el inventario.
             </DialogDescription>
           </DialogHeader>
-          
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 space-y-8">
-              
+
+              {/* Bloque 0: Imagen de Producto */}
+              <div className="mb-6 flex flex-col items-center justify-center pt-2">
+                <div
+                  className={cn(
+                    "w-36 h-36 rounded-2xl border-2 border-dashed flex items-center justify-center relative overflow-hidden transition-all cursor-pointer shadow-sm group",
+                    isDragging ? "border-primary bg-primary/10 scale-105" : "border-primary/30 bg-muted/20 hover:bg-primary/5 hover:border-primary/60"
+                  )}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault(); setIsDragging(false);
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.size <= 10 * 1024 * 1024) {
+                      setImageFile(file);
+                      setImagePreviewUrl(URL.createObjectURL(file));
+                    } else { toast.error("La imagen excede los 10MB"); }
+                  }}
+                  onClick={() => document.getElementById("image-upload-input")?.click()}
+                >
+                  {imagePreviewUrl ? (
+                    <img src={imagePreviewUrl} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (editingProduct as any)?.image_id ? (
+                    <ProductImage imageId={(editingProduct as any).image_id} productName={editingProduct!.name} categoryName={editingProduct!.category_id || 'GEN'} size="medium" />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-primary/50 group-hover:text-primary transition-colors">
+                      <ImagePlus className="w-8 h-8 mb-2" />
+                      <span className="text-[11px] font-bold tracking-tight">Añadir Foto</span>
+                    </div>
+                  )}
+
+                  {/* Overlay on hover */}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <Upload className="w-8 h-8 text-white drop-shadow-md" />
+                  </div>
+
+                  <input
+                    id="image-upload-input"
+                    type="file"
+                    accept="image/jpeg, image/png, image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file && file.size <= 10 * 1024 * 1024) {
+                        setImageFile(file);
+                        setImagePreviewUrl(URL.createObjectURL(file));
+                      } else if (file) { toast.error("La imagen excede los 10MB"); }
+                    }}
+                  />
+                </div>
+                {(imageFile || (editingProduct as any)?.image_id) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-[11px] mt-2 text-destructive hover:text-destructive hover:bg-destructive/10 font-bold"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (imageFile) {
+                        setImageFile(null);
+                        setImagePreviewUrl(null);
+                      } else if ((editingProduct as any)?.image_id) {
+                        if (confirm("¿Estás seguro de eliminar la imagen del servidor? Esta acción no se puede deshacer.")) {
+                          try {
+                            await localApiClient.delete(`/inventory/products/${editingProduct!.id}/image`);
+                            setEditingProduct({ ...editingProduct!, image_id: null } as any);
+                            queryClient.invalidateQueries({ queryKey: ["inventory"] });
+                            toast.success("Imagen eliminada");
+                          } catch (err) { toast.error("Error al eliminar la imagen"); }
+                        }
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Quitar Foto
+                  </Button>
+                )}
+              </div>
+
               {/* Bloque 1: Identificación Básica */}
-              <div className="space-y-4">
+              <div className="space-y-4 bg-muted/10 p-5 rounded-2xl border border-border">
                 <div className="flex items-center gap-2 text-primary font-bold border-b pb-2 mb-4">
                   <Info className="h-4 w-4" />
-                  <h3>Identificación y Etiquetas</h3>
+                  <h3>Identificación y Categoría</h3>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="sku" render={({ field }) => (
                     <FormItem>
@@ -578,7 +747,7 @@ export function InventoryModule() {
                     </FormItem>
                   )} />
                 </div>
-                
+
                 <FormField control={form.control} name="name" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Nombre del Producto *</FormLabel>
@@ -587,11 +756,16 @@ export function InventoryModule() {
                   </FormItem>
                 )} />
 
-                <FormField control={form.control} name="tags" render={({ field }) => (
+                <FormField control={form.control} name="category_id" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Etiquetas (Separadas por coma)</FormLabel>
-                    <FormControl><Input placeholder="Bebidas, Oferta, Verano..." {...field} /></FormControl>
-                    <FormDescription>Ayudan a filtrar productos rápidamente.</FormDescription>
+                    <FormLabel>Categoría</FormLabel>
+                    <FormControl>
+                      <CategoryCombobox 
+                        value={field.value} 
+                        onChange={field.onChange} 
+                      />
+                    </FormControl>
+                    <FormDescription>Selecciona la categoría jerárquica del producto.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -611,7 +785,7 @@ export function InventoryModule() {
                   <ListChecks className="h-4 w-4" />
                   <h3>Categorización</h3>
                 </div>
-                
+
                 <FormField control={form.control} name="product_type" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Clasificación del Producto</FormLabel>
@@ -658,7 +832,7 @@ export function InventoryModule() {
                       <Plus className="h-4 w-4 mr-1" /> Añadir Producto
                     </Button>
                   </div>
-                  
+
                   <div className="space-y-3">
                     {fields.map((field, index) => (
                       <div key={field.id} className="flex gap-2 items-start bg-background p-2 rounded-lg border border-purple-100 shadow-sm animate-in zoom-in-95 duration-200">
@@ -695,7 +869,7 @@ export function InventoryModule() {
                   <DollarSign className="h-4 w-4" />
                   <h3>Costos y Precios</h3>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="cost_usd" render={({ field }) => (
                     <FormItem>
@@ -772,7 +946,7 @@ export function InventoryModule() {
                     <Layers className="h-4 w-4" />
                     <h3>Control de Stock</h3>
                   </div>
-                  
+
                   <FormField control={form.control} name="min_stock_alert" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Alerta de Umbral Mínimo</FormLabel>
@@ -781,13 +955,13 @@ export function InventoryModule() {
                       <FormMessage />
                     </FormItem>
                   )} />
-                  
+
                   {(editingProduct || isVirtual) && (
                     <div className="p-4 bg-muted/50 rounded-xl flex items-center justify-between border">
                       <div className="text-sm font-medium opacity-70 uppercase tracking-wider">
                         {isVirtual ? "STOCK PROYECTADO" : "STOCK ACTUAL"}
                       </div>
-                      <Badge 
+                      <Badge
                         className={cn(
                           "text-xl font-black font-mono px-4 py-1 shadow-sm",
                           (isVirtual ? projectedComboStock : (editingProduct?.cached_stock_quantity || 0)) === 0
@@ -815,34 +989,34 @@ export function InventoryModule() {
           </Form>
         </DialogContent>
       </Dialog>
-      
+
       <Dialog open={isExcelDialogOpen} onOpenChange={setIsExcelDialogOpen}>
-         <DialogContent className="sm:max-w-md shadow-2xl rounded-2xl border-0">
-            <DialogHeader className="p-6 bg-primary/10 border-b border-primary/20">
-                <DialogTitle className="text-xl font-bold flex items-center gap-2 text-primary">
-                  <FileSpreadsheet className="h-6 w-6"/> Importación Excel
-                </DialogTitle>
-                <DialogDescription className="sr-only">
-                  Ventana modal para cargar archivos excel masivos de inventario.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-6 p-6 text-sm text-foreground">
-                <div className="space-y-3">
-                  <p className="font-semibold px-1">Paso 1: Usar Plantilla Validada</p>
-                  <p className="text-muted-foreground px-1 text-xs">Asegúrese de emplear la estructura correcta para que el sistema procese el lote de activos estrictamente.</p>
-                  <Button onClick={downloadExcelTemplate} variant="outline" className="w-full border-primary/30 text-primary font-bold hover:bg-primary/20 hover:text-primary"><Download className="h-4 w-4 mr-2" /> Descargar Modelo Autorizado</Button>
-                </div>
-                
-                <div className="space-y-3">
-                  <p className="font-semibold px-1">Paso 2: Cargar Registro</p>
-                  <div className="border-2 border-dashed border-primary/30 bg-primary/5 rounded-xl p-8 flex flex-col items-center justify-center text-center gap-4 hover:bg-primary/10 transition-colors">
-                      <FileSpreadsheet className={`h-10 w-10 text-primary ${isImporting ? 'animate-bounce' : ''}`} />
-                      <Input disabled={isImporting} type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} className="max-w-xs border-primary/50" />
-                      {isImporting && <p className="text-primary font-bold animate-pulse text-xs bg-primary/20 px-3 py-1.5 rounded-full mt-2">Procesando y validando matriz masiva...</p>}
-                  </div>
-                </div>
+        <DialogContent className="sm:max-w-md shadow-2xl rounded-2xl border-0">
+          <DialogHeader className="p-6 bg-primary/10 border-b border-primary/20">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-primary">
+              <FileSpreadsheet className="h-6 w-6" /> Importación Excel
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Ventana modal para cargar archivos excel masivos de inventario.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 p-6 text-sm text-foreground">
+            <div className="space-y-3">
+              <p className="font-semibold px-1">Paso 1: Usar Plantilla Validada</p>
+              <p className="text-muted-foreground px-1 text-xs">Asegúrese de emplear la estructura correcta para que el sistema procese el lote de activos estrictamente.</p>
+              <Button onClick={downloadExcelTemplate} variant="outline" className="w-full border-primary/30 text-primary font-bold hover:bg-primary/20 hover:text-primary"><Download className="h-4 w-4 mr-2" /> Descargar Modelo Autorizado</Button>
             </div>
-         </DialogContent>
+
+            <div className="space-y-3">
+              <p className="font-semibold px-1">Paso 2: Cargar Registro</p>
+              <div className="border-2 border-dashed border-primary/30 bg-primary/5 rounded-xl p-8 flex flex-col items-center justify-center text-center gap-4 hover:bg-primary/10 transition-colors">
+                <FileSpreadsheet className={`h-10 w-10 text-primary ${isImporting ? 'animate-bounce' : ''}`} />
+                <Input disabled={isImporting} type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} className="max-w-xs border-primary/50" />
+                {isImporting && <p className="text-primary font-bold animate-pulse text-xs bg-primary/20 px-3 py-1.5 rounded-full mt-2">Procesando y validando matriz masiva...</p>}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
       </Dialog>
 
       {/* Shrinkage Modal */}
@@ -850,7 +1024,7 @@ export function InventoryModule() {
         <DialogContent className="sm:max-w-md shadow-2xl rounded-2xl border-0">
           <DialogHeader className="p-6 bg-amber-50 border-b border-amber-200">
             <DialogTitle className="text-xl font-bold flex items-center gap-2 text-amber-700">
-              <TrendingDown className="h-6 w-6"/> Registrar Merma
+              <TrendingDown className="h-6 w-6" /> Registrar Merma
             </DialogTitle>
             <DialogDescription className="text-amber-900/70">
               Descontar inventario por pérdida, daño o vencimiento.
@@ -868,19 +1042,19 @@ export function InventoryModule() {
                 </Badge>
               </div>
             )}
-            
+
             <div className="space-y-2">
               <Label>Cantidad a dar de baja</Label>
-              <Input 
-                type="number" 
-                step="0.01" 
-                value={shrinkageQuantity} 
-                onChange={e => setShrinkageQuantity(e.target.value)} 
-                placeholder="Ej. 1" 
+              <Input
+                type="number"
+                step="0.01"
+                value={shrinkageQuantity}
+                onChange={e => setShrinkageQuantity(e.target.value)}
+                placeholder="Ej. 1"
                 className="font-bold text-lg"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label>Motivo / Observación</Label>
               <Select value={shrinkageReason} onValueChange={setShrinkageReason}>
@@ -918,14 +1092,14 @@ export function InventoryModule() {
                 <span className="block leading-relaxed">
                   {alertConfig?.description}
                 </span>
-                
+
                 {alertConfig && alertConfig.errors.length > 0 && (
                   <>
                     <span className="text-sm font-bold text-red-600">Revise la siguiente tabla de errores ({alertConfig.errors.length}):</span>
                     <div className="bg-red-50/50 p-4 rounded-xl max-h-[30vh] overflow-y-auto w-full font-mono text-xs border border-red-100">
-                       <ul className="list-disc pl-4 space-y-2 text-red-800">
-                          {alertConfig.errors.map((err, i) => <li key={i} className="font-semibold">{err}</li>)}
-                       </ul>
+                      <ul className="list-disc pl-4 space-y-2 text-red-800">
+                        {alertConfig.errors.map((err, i) => <li key={i} className="font-semibold">{err}</li>)}
+                      </ul>
                     </div>
                   </>
                 )}

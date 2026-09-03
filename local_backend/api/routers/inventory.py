@@ -2,12 +2,13 @@ from typing import Dict, List, Optional
 from uuid import uuid4
 import asyncio
 from datetime import datetime, UTC
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlmodel import Session, SQLModel, select, Field
 
 from local_backend.core.database import get_session
 from local_backend.core.models import Product, ProductType, TaxType, ProductComposition, InventoryTransaction
 from local_backend.api.utils.audit_service import log_event, fire_audit_log
+from local_backend.api.services.image_service import save_and_process_product_image, delete_product_images
 
 router = APIRouter(prefix="/inventory", tags=["Inventory"])
 
@@ -35,7 +36,6 @@ class ProductCreate(SQLModel):
     wholesale_price_usd: float = 0.0
     package_quantity: int = 1
     min_stock_alert: float = 0.0
-    tags: Optional[str] = None
     combo_items: List[ComboItemCreate] = []
 
 class ProductNotFoundError(HTTPException):
@@ -48,6 +48,90 @@ def get_products(session: Session = Depends(get_session)):
     statement = select(Product).where(Product.is_deleted == False)
     results = session.exec(statement).all()
     return results
+
+@router.get("/categories")
+def get_categories(
+    q: Optional[str] = None,
+    parent_id: Optional[str] = None,
+    page: int = 1,
+    limit: int = 15,
+    session: Session = Depends(get_session)
+):
+    from local_backend.core.models import Category
+    import math
+
+    # Fetch all categories to build paths efficiently
+    all_cats = session.exec(select(Category).where(Category.is_active == True)).all()
+    cat_dict = {c.id: c for c in all_cats}
+
+    def get_full_path(cat):
+        path = [cat.name]
+        current = cat
+        while current.parent_id and current.parent_id in cat_dict:
+            current = cat_dict[current.parent_id]
+            path.insert(0, current.name)
+        return " > ".join(path)
+    
+    # Filter by parent_id
+    filtered = all_cats
+    if parent_id:
+        filtered = [c for c in filtered if c.parent_id == parent_id]
+        
+    # Build responses with full_path
+    responses = []
+    for c in filtered:
+        responses.append({
+            "id": c.id,
+            "name": c.name,
+            "full_path": get_full_path(c),
+            "google_taxonomy_id": c.google_taxonomy_id,
+            "parent_id": c.parent_id
+        })
+        
+    # Search filter
+    if q:
+        q_lower = q.lower()
+        responses = [r for r in responses if q_lower in r["full_path"].lower() or q_lower in r["name"].lower()]
+
+    # Pagination
+    total = len(responses)
+    start = (page - 1) * limit
+    end = start + limit
+    paginated = responses[start:end]
+    
+    return {
+        "items": paginated,
+        "total": total,
+        "page": page,
+        "pages": math.ceil(total / limit) if limit > 0 else 1
+    }
+
+@router.get("/categories/{category_id}")
+def get_category(category_id: str, session: Session = Depends(get_session)):
+    from local_backend.core.models import Category
+    category = session.get(Category, category_id)
+    if not category or not category.is_active:
+        raise HTTPException(status_code=404, detail="Category not found")
+        
+    # Calculate full_path
+    path = [category.name]
+    current = category
+    while current.parent_id:
+        parent = session.get(Category, current.parent_id)
+        if not parent:
+            break
+        path.insert(0, parent.name)
+        current = parent
+        
+    return {
+        "id": category.id,
+        "name": category.name,
+        "full_path": " > ".join(path),
+        "google_taxonomy_id": category.google_taxonomy_id,
+        "parent_id": category.parent_id
+    }
+
+
 
 
 @router.post("/products", status_code=status.HTTP_201_CREATED)
@@ -101,7 +185,6 @@ def create_product(payload: ProductCreate, session: Session = Depends(get_sessio
         package_quantity=payload.package_quantity,
         cached_stock_quantity=0.0,
         min_stock_alert=payload.min_stock_alert,
-        tags=payload.tags,
         is_synced=False,
         is_deleted=False,
     )
@@ -414,4 +497,57 @@ def adjust_stock(payload: StockAdjustmentDTO, session: Session = Depends(get_ses
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Transaction failed: {str(e)}")
 
+@router.post("/products/{product_id}/image")
+def upload_product_image(
+    product_id: str, 
+    file: UploadFile = File(...), 
+    session: Session = Depends(get_session)
+):
+    product = session.get(Product, product_id)
+    if not product:
+        raise ProductNotFoundError(product_id)
+        
+    try:
+        new_image_id = save_and_process_product_image(file, product.image_id)
+        product.image_id = new_image_id
+        product.updated_at = datetime.utcnow()
+        session.add(product)
+        session.commit()
+        
+        fire_audit_log(
+            module="inventory",
+            action="UPDATE_IMAGE",
+            description=f"Updated image for product {product.name}",
+            severity="INFO",
+            entity_name="product",
+            entity_id=product.id,
+        )
+        return {"status": "success", "image_id": new_image_id}
+    except Exception as e:
+        session.rollback()
+        raise e
+
+@router.delete("/products/{product_id}/image")
+def delete_product_image_endpoint(product_id: str, session: Session = Depends(get_session)):
+    product = session.get(Product, product_id)
+    if not product:
+        raise ProductNotFoundError(product_id)
+        
+    if product.image_id:
+        delete_product_images(product.image_id)
+        product.image_id = None
+        product.updated_at = datetime.utcnow()
+        session.add(product)
+        session.commit()
+        
+        fire_audit_log(
+            module="inventory",
+            action="DELETE_IMAGE",
+            description=f"Deleted image for product {product.name}",
+            severity="WARNING",
+            entity_name="product",
+            entity_id=product.id,
+        )
+        
+    return {"status": "success"}
 
