@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 
 import { ProductImage } from "./product-image"
+import { ProductGridList } from "./product-grid-list"
 
 import { useProducts, Product } from "@/hooks/queries/use-inventory"
 import { useSuppliers, Supplier } from "@/hooks/queries/use-suppliers"
@@ -307,66 +308,19 @@ export function PurchasesModule() {
               <PackageSearch className="h-8 w-8 text-muted-foreground" />
               <p className="text-xs font-semibold tracking-wide">Búsqueda sin resultados</p>
             </div>
-          ) : viewMode === "cards" ? (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-2">
-              {filteredProducts.map((product) => (
-                <Card
-                  key={product.id}
-                  onClick={() => addToPurchase(product)}
-                  className="group relative cursor-pointer border-2 border-border/60 bg-background overflow-hidden rounded-lg hover:shadow-md hover:border-primary/50 flex flex-col h-[130px] transition-all"
-                >
-                  <div className="absolute top-1 left-1 z-10">
-                    <span className={cn(
-                      "px-1.5 py-0.5 text-[9px] font-bold font-mono tracking-tighter rounded shadow-sm",
-                      product.cached_stock_quantity === 0 
-                        ? "bg-transparent border-2 border-foreground text-foreground shadow-none" 
-                        : product.cached_stock_quantity <= (product.min_stock_alert || 0)
-                          ? "bg-destructive text-destructive-foreground border-0" 
-                          : "bg-foreground/90 text-background border border-foreground/50"
-                    )}>
-                      STK: {product.cached_stock_quantity}
-                    </span>
-                  </div>
-
-                  <div className="flex-1 bg-muted/10 w-full flex items-center justify-center relative border-b border-border/40 p-0 overflow-hidden">
-                     <ProductImage imageId={product.image_id as any} productName={product.name} categoryName={product.category_id || 'GEN'} className="w-full h-full object-cover rounded-t-lg group-hover:scale-105 transition-transform duration-300" size="thumb" />
-                     <div className="absolute bottom-1 right-1 bg-primary text-primary-foreground text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">
-                        ${product.cost_usd.toFixed(2)}
-                     </div>
-                  </div>
-
-                  <CardContent className="p-2 shrink-0">
-                     <h3 className="line-clamp-2 text-[10px] font-bold text-foreground leading-tight group-hover:text-primary">
-                        {product.name}
-                     </h3>
-                     <p className="text-[9px] text-muted-foreground font-mono mt-0.5 truncate uppercase">
-                        {product.sku}
-                     </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
           ) : (
-            <div className="flex flex-col gap-1">
-              {filteredProducts.map(product => (
-                <div key={product.id} onClick={() => addToPurchase(product)} className="flex items-center gap-2 p-1.5 bg-card border border-border/50 rounded-lg hover:border-primary/50 cursor-pointer">
-                  <div className="w-8 h-8 rounded bg-muted/30 overflow-hidden shrink-0 border border-border/50">
-                    <ProductImage imageId={product.image_id as any} productName={product.name} categoryName={product.category_id || 'GEN'} size="thumb" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-[10px] font-bold truncate leading-none">{product.name}</h4>
-                    <p className="text-[9px] font-mono text-muted-foreground">{product.sku}</p>
-                  </div>
-                  <div className="flex flex-col items-end shrink-0">
-                    <span className="text-[10px] font-black">${product.cost_usd.toFixed(2)}</span>
-                    <span className={cn("text-[9px] font-bold", product.cached_stock_quantity <= product.min_stock_alert ? "text-destructive" : "text-muted-foreground")}>STK: {product.cached_stock_quantity}</span>
-                  </div>
-                  <div className="shrink-0 w-5 flex justify-end">
-                    <Button variant="ghost" size="icon" className="h-5 w-5 text-primary hover:bg-primary/10 rounded-full"><Plus className="h-3 w-3" /></Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ProductGridList
+              products={filteredProducts}
+              viewMode={viewMode}
+              exchangeRate={exchangeRate}
+              priceMode="cost"
+              onProductClick={(product) => addToPurchase(product)}
+              renderListActions={() => (
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-primary hover:bg-primary/10 rounded-full pointer-events-none">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              )}
+            />
           )}
         </div>
       </div>

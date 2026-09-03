@@ -101,7 +101,7 @@ export function useCreateSale() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales"] })
-      queryClient.invalidateQueries({ queryKey: ["inventory"] }) // El stock baja
+      queryClient.invalidateQueries({ queryKey: ["products"] }) // El stock baja
     },
   })
 }

@@ -43,11 +43,48 @@ class ProductNotFoundError(HTTPException):
         super().__init__(status_code=status.HTTP_404_NOT_FOUND, detail=f"Product with id {product_id} not found")
 
 
-@router.get("/products", response_model=List[Product])
+class ProductResponse(Product):
+    category_name: Optional[str] = None
+
+# Global in-memory cache for category hierarchy to optimize advanced search
+_CATEGORY_CACHE = {}
+_CATEGORIES_LOADED = False
+
+def _get_category_full_path(cat_id: Optional[str], session: Session) -> Optional[str]:
+    if not cat_id:
+        return None
+        
+    global _CATEGORIES_LOADED, _CATEGORY_CACHE
+    from local_backend.core.models import Category
+    
+    if not _CATEGORIES_LOADED:
+        categories = session.exec(select(Category)).all()
+        _CATEGORY_CACHE = {c.id: c for c in categories}
+        _CATEGORIES_LOADED = True
+        
+    if cat_id not in _CATEGORY_CACHE:
+        return None
+        
+    path = []
+    current = cat_id
+    while current and current in _CATEGORY_CACHE:
+        path.append(_CATEGORY_CACHE[current].name)
+        current = _CATEGORY_CACHE[current].parent_id
+        
+    return " > ".join(reversed(path))
+
+
+@router.get("/products", response_model=List[ProductResponse])
 def get_products(session: Session = Depends(get_session)):
-    statement = select(Product).where(Product.is_deleted == False)
-    results = session.exec(statement).all()
-    return results
+    products = session.exec(select(Product).where(Product.is_deleted == False)).all()
+    
+    response = []
+    for product in products:
+        prod_data = product.model_dump()
+        prod_data["category_name"] = _get_category_full_path(product.category_id, session)
+        response.append(ProductResponse(**prod_data))
+        
+    return response
 
 @router.get("/categories")
 def get_categories(

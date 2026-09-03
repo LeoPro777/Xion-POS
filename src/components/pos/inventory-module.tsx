@@ -46,6 +46,7 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
 import { Search, Plus, Edit, Trash2, Tag, Box, Layers, DollarSign, Info, ListChecks, ShoppingBag, FileSpreadsheet, Download, AlertCircle, TrendingDown, LayoutGrid, List, ImagePlus, Upload, X } from "lucide-react"
 import { ProductImage } from "./product-image"
+import { ProductGridList } from "./product-grid-list"
 import { CategoryCombobox } from "./inventory/category-combobox"
 
 import { localApiClient } from "@/lib/api-client"
@@ -127,7 +128,7 @@ export function InventoryModule() {
       return res.data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["inventory"] })
+      queryClient.invalidateQueries({ queryKey: ["products"] })
       toast.success("Merma registrada exitosamente")
       setIsShrinkageDialogOpen(false)
       setShrinkageQuantity("")
@@ -144,7 +145,8 @@ export function InventoryModule() {
     (product) =>
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.barcode || "").toLowerCase().includes(searchQuery.toLowerCase())
+      (product.barcode || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (product.category_name || "").toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const form = useForm<ProductFormValues>({
@@ -392,7 +394,7 @@ export function InventoryModule() {
           await localApiClient.post(`/inventory/products/${editingProduct.id}/image`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
         }
 
-        queryClient.invalidateQueries({ queryKey: ["inventory"] })
+        queryClient.invalidateQueries({ queryKey: ["products"] })
         toast.success("Producto modificado correctamente")
       } else {
         const payload = {
@@ -410,7 +412,7 @@ export function InventoryModule() {
           await localApiClient.post(`/inventory/products/${newId}/image`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
         }
 
-        queryClient.invalidateQueries({ queryKey: ["inventory"] })
+        queryClient.invalidateQueries({ queryKey: ["products"] })
         toast.success("Producto creado exitosamente")
       }
       setIsAddDialogOpen(false)
@@ -508,127 +510,32 @@ export function InventoryModule() {
         </div>
       </div>
 
-      {viewMode === "list" ? (
-        <Card className="flex-1 overflow-hidden border-border/50 shadow-md">
-          <div className="overflow-x-auto h-[calc(100vh-320px)] relative">
-            <Table>
-              <TableHeader className="sticky top-0 bg-secondary/80 backdrop-blur-md z-10">
-                <TableRow>
-                  <TableHead className="w-12"></TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Producto</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead className="text-right">Precio</TableHead>
-                  <TableHead className="text-center">Stock</TableHead>
-                  <TableHead className="text-right pr-6">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProducts.map((product) => {
-                  const isLowStock = product.cached_stock_quantity <= product.min_stock_alert && product.product_type !== "service"
-                  return (
-                    <TableRow key={product.id} className="hover:bg-muted/50 transition-colors">
-                      <TableCell>
-                        <div className="w-10 h-10 rounded overflow-hidden border border-border/50 bg-background">
-                          <ProductImage imageId={product.image_id as any} productName={product.name} categoryName={product.category_id || 'GEN'} size="thumb" />
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{product.sku}</TableCell>
-                      <TableCell>
-                        <div className="font-medium text-foreground">{product.name}</div>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {product.barcode && <Badge variant="ghost" className="text-[10px] h-4 px-1 flex items-center gap-1 opacity-70"><Tag className="h-2 w-2" /> {product.barcode}</Badge>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="bg-primary text-primary-foreground border-0 shadow-sm font-bold">
-                          {product.product_type === 'physical' ? 'Físico' : product.product_type === 'virtual' ? 'Combo' : 'Servicio'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="font-black text-primary text-sm">${product.price_usd.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          <span className="text-[10px] font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full shadow-sm">Bs {(product.price_usd * exchangeRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {product.product_type === "service" ? (
-                          <span className="text-xs text-muted-foreground">∞ Ilimitado</span>
-                        ) : (
-                          <Badge
-                            className={cn(
-                              "font-black shadow-sm px-3",
-                              product.cached_stock_quantity === 0
-                                ? "bg-transparent border-2 border-foreground text-foreground shadow-none"
-                                : isLowStock
-                                  ? "bg-destructive text-destructive-foreground border-0"
-                                  : "bg-primary text-primary-foreground border-0"
-                            )}
-                          >
-                            {product.cached_stock_quantity} {product.unit_measure}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right pr-4">
-                        <div className="flex justify-end gap-1">
-                          {product.product_type !== 'service' && (
-                            <Button variant="ghost" size="icon" title="Registrar Merma" onClick={() => handleOpenShrinkage(product)} className="hover:bg-amber-100 hover:text-amber-600">
-                              <TrendingDown className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(product)} className="hover:bg-primary/10 hover:text-primary"><Edit className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="hover:bg-destructive/10 text-destructive" onClick={() => handleDelete(product.id)}><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-      ) : (
-        <div className="flex-1 overflow-y-auto h-[calc(100vh-320px)] relative pb-6 pr-2">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {filteredProducts.map(product => (
-              <Card key={product.id} className="overflow-hidden border-border/50 hover:border-primary/50 hover:shadow-md transition-all flex flex-col group">
-                <div className="aspect-square bg-muted/20 relative border-b border-border/50">
-                  <ProductImage imageId={product.image_id as any} productName={product.name} categoryName={product.category_id || 'GEN'} size="medium" />
-                  {product.cached_stock_quantity <= product.min_stock_alert && product.product_type !== 'service' && (
-                    <Badge className="absolute top-2 left-2 bg-destructive text-destructive-foreground border-0 shadow-sm">Stock Bajo</Badge>
-                  )}
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="secondary" size="icon" className="h-7 w-7 bg-background/80 hover:bg-background backdrop-blur-sm shadow-sm text-primary" onClick={() => handleOpenDialog(product)}><Edit className="h-3 w-3" /></Button>
-                    <Button variant="secondary" size="icon" className="h-7 w-7 bg-background/80 hover:bg-background backdrop-blur-sm shadow-sm text-destructive" onClick={() => handleDelete(product.id)}><Trash2 className="h-3 w-3" /></Button>
-                  </div>
-                </div>
-                <CardContent className="p-3 flex-1 flex flex-col gap-1 bg-card">
-                  <div>
-                    <p className="text-[10px] font-mono text-muted-foreground">{product.sku}</p>
-                    <h3 className="font-bold text-sm line-clamp-2 leading-tight group-hover:text-primary transition-colors">{product.name}</h3>
-                  </div>
-                  <div className="mt-auto pt-2 flex items-end justify-between border-t border-border/30">
-                    <div>
-                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Precio</p>
-                      <p className="font-black text-primary text-base leading-none">${product.price_usd.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Stock</p>
-                      {product.product_type === "service" ? (
-                        <p className="font-black text-sm leading-none text-muted-foreground">∞</p>
-                      ) : (
-                        <p className={cn("font-black text-sm leading-none", product.cached_stock_quantity <= product.min_stock_alert ? "text-destructive" : "text-foreground")}>
-                          {product.cached_stock_quantity}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
+      <div className="flex-1 overflow-y-auto relative h-[calc(100vh-320px)] pr-2">
+        <ProductGridList
+          products={filteredProducts}
+          viewMode={viewMode}
+          exchangeRate={exchangeRate}
+          priceMode="sale"
+          showTypeBadge={true}
+          renderCardActions={(product) => (
+            <>
+              <Button variant="secondary" size="icon" className="h-7 w-7 bg-background/80 hover:bg-background backdrop-blur-sm shadow-sm text-primary" onClick={() => handleOpenDialog(product)}><Edit className="h-3 w-3" /></Button>
+              <Button variant="secondary" size="icon" className="h-7 w-7 bg-background/80 hover:bg-background backdrop-blur-sm shadow-sm text-destructive" onClick={() => handleDelete(product.id)}><Trash2 className="h-3 w-3" /></Button>
+            </>
+          )}
+          renderListActions={(product) => (
+            <>
+              {product.product_type !== 'service' && (
+                <Button variant="ghost" size="icon" title="Registrar Merma" onClick={(e) => { e.stopPropagation(); handleOpenShrinkage(product); }} className="hover:bg-amber-100 hover:text-amber-600 h-8 w-8">
+                  <TrendingDown className="h-4 w-4" />
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleOpenDialog(product); }} className="hover:bg-primary/10 hover:text-primary h-8 w-8"><Edit className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className="hover:bg-destructive/10 text-destructive h-8 w-8" onClick={(e) => { e.stopPropagation(); handleDelete(product.id); }}><Trash2 className="h-4 w-4" /></Button>
+            </>
+          )}
+        />
+      </div>
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-0 gap-0 shadow-2xl rounded-2xl border-0">
@@ -760,9 +667,9 @@ export function InventoryModule() {
                   <FormItem>
                     <FormLabel>Categoría</FormLabel>
                     <FormControl>
-                      <CategoryCombobox 
-                        value={field.value} 
-                        onChange={field.onChange} 
+                      <CategoryCombobox
+                        value={field.value}
+                        onChange={field.onChange}
                       />
                     </FormControl>
                     <FormDescription>Selecciona la categoría jerárquica del producto.</FormDescription>

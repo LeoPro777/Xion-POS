@@ -26,6 +26,7 @@ export interface Product {
   name: string;
   description?: string;
   category_id?: string;
+  category_name?: string;
   cost_usd: number;
   price_usd: number;
   product_type: ProductType;

@@ -24,7 +24,7 @@ export function useCreatePurchase() {
     },
     onSuccess: () => {
       // Invalidate inventory so stock levels update on the UI instantly
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }
