@@ -323,4 +323,14 @@ class SupervisorAuthCode(SQLModel, table=True):
     revoked_at: Optional[datetime] = Field(default=None, nullable=True)
 
 
+class PaymentMethodModel(SQLModel, table=True):
+    __tablename__: str = "payment_methods"
 
+    id: Optional[int] = Field(default=None, primary_key=True, index=True)
+    name: str = Field(unique=True, index=True, nullable=False)
+    code: str = Field(unique=True, index=True, nullable=False)
+    currency: str = Field(nullable=False)
+    allow_decimals: bool = Field(default=True, nullable=False)
+    is_system: bool = Field(default=False, nullable=False)
+    is_active: bool = Field(default=True, nullable=False)
+    image_url: Optional[str] = Field(default=None, nullable=True)

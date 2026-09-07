@@ -489,11 +489,6 @@ export function SalesModule() {
       <PaymentModal
         open={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
-        paymentMethods={
-           config?.payment_methods_json 
-           ? JSON.parse(config.payment_methods_json) 
-           : []
-        }
         onConfirm={async (payments: SalePaymentDTO[]) => {
           try {
             const payload: SaleCreateDTO = {

@@ -16,6 +16,7 @@ import {
   HelpCircle,
   Settings,
   Palette,
+  CreditCard,
   ShieldCheck, // Icono para auditoría
 } from "lucide-react"
 import { useState } from "react"
@@ -42,6 +43,7 @@ export function DashboardSidebar({ activeItem, onItemClick, currentUser }: Dashb
     { icon: Users, label: "Usuarios" },
     { icon: UserCircle, label: "Clientes" },
     { icon: Building2, label: "Proveedores" },
+    { icon: CreditCard, label: "Métodos de Pago" },
     { icon: BarChart3, label: "Reportes" },
     ...(isAuthorized ? [{ icon: ShieldCheck, label: "Auditoría" }] : []),
   ]

@@ -20,6 +20,7 @@ import { ReportsModule } from "./reports-module"
 import { AccountModule } from "./account-module"
 import { ProfileModule } from "./profile-module"
 import { AuditLogModule } from "./audit-log-module"
+import { PaymentMethodsModule } from "./payment-methods-module"
 
 interface DashboardScreenProps {
   onLogout: () => void
@@ -47,6 +48,8 @@ export function DashboardScreen({ onLogout, currentUser }: DashboardScreenProps)
         return <ClientsModule />
       case "Proveedores":
         return <SuppliersModule />
+      case "Métodos de Pago":
+        return <PaymentMethodsModule />
       case "Reportes":
         return <ReportsModule />
       case "Auditoría":

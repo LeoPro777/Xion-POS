@@ -8,22 +8,24 @@ from fastapi import UploadFile, HTTPException
 # This file is in local_backend/api/services/image_service.py
 # So we go up 3 levels to reach local_backend, then data/uploads/products
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-UPLOAD_DIR = os.path.join(BASE_DIR, "data", "uploads", "products")
 
-# Ensure directory exists
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+def get_upload_dir(folder: str = "products") -> str:
+    path = os.path.join(BASE_DIR, "data", "uploads", folder)
+    os.makedirs(path, exist_ok=True)
+    return path
 
 VALID_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/bmp", "image/tiff"}
 
-def save_and_process_product_image(file: UploadFile, old_image_id: str | None = None) -> str:
+def save_and_process_image(file: UploadFile, old_image_id: str | None = None, folder: str = "products") -> str:
     # 1. Validar Tipo MIME
     if file.content_type not in VALID_MIME_TYPES:
         raise HTTPException(status_code=400, detail="Formato de imagen inválido. Use JPG, PNG o WebP.")
 
     # 2. Generar Identificador Único
     new_image_id = uuid.uuid4().hex[:12]
-    thumb_path = os.path.join(UPLOAD_DIR, f"thumb_{new_image_id}.webp")
-    medium_path = os.path.join(UPLOAD_DIR, f"medium_{new_image_id}.webp")
+    upload_dir = get_upload_dir(folder)
+    thumb_path = os.path.join(upload_dir, f"thumb_{new_image_id}.webp")
+    medium_path = os.path.join(upload_dir, f"medium_{new_image_id}.webp")
 
     try:
         # 3. Abrir y normalizar imagen
@@ -56,17 +58,31 @@ def save_and_process_product_image(file: UploadFile, old_image_id: str | None = 
 
     # 6. Eliminar archivos físicos anteriores si existían
     if old_image_id:
-        delete_product_images(old_image_id)
+        delete_image(old_image_id, folder)
 
     return new_image_id
 
-def delete_product_images(image_id: str | None) -> None:
+def delete_image(image_id: str | None, folder: str = "products") -> None:
     if not image_id:
         return
+    upload_dir = get_upload_dir(folder)
     for prefix in ["thumb_", "medium_"]:
-        file_path = os.path.join(UPLOAD_DIR, f"{prefix}{image_id}.webp")
+        file_path = os.path.join(upload_dir, f"{prefix}{image_id}.webp")
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
             except OSError:
                 pass
+
+def save_and_process_product_image(file: UploadFile, old_image_id: str | None = None) -> str:
+    return save_and_process_image(file, old_image_id, "products")
+
+def delete_product_images(image_id: str | None) -> None:
+    return delete_image(image_id, "products")
+
+def save_and_process_payment_method_image(file: UploadFile, old_image_id: str | None = None) -> str:
+    return save_and_process_image(file, old_image_id, "payment_methods")
+
+def delete_payment_method_images(image_id: str | None) -> None:
+    return delete_image(image_id, "payment_methods")
+

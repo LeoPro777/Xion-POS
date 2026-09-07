@@ -42,7 +42,7 @@ const paymentMethodsMock = [
 ]
 
 import { useActiveSession, useOpenSession, useSessionSummary } from "@/hooks/queries/use-cash-register"
-
+import { usePaymentMethods } from "@/hooks/queries/use-payment-methods"
 export function DashboardContent({ onOpenCaja, onCloseCaja }: DashboardContentProps) {
   const [currentTime, setCurrentTime] = useState(new Date())
 
@@ -57,18 +57,19 @@ export function DashboardContent({ onOpenCaja, onCloseCaja }: DashboardContentPr
   const { data: config } = useSystemStatus()
   const exchangeRate = config?.current_exchange_rate_bs || 36.5
 
-  const paymentMethodsFromJson = config?.payment_methods_json ? JSON.parse(config.payment_methods_json) : []
+  const { data: dbPaymentMethods } = usePaymentMethods(true)
 
   // Mapear los métodos configurados a los montos reales de la sesión
-  const paymentMethods = paymentMethodsFromJson.length > 0
-    ? paymentMethodsFromJson.map((method: any) => {
-      const realUsd = summary?.payments?.[method.label] || 0.0
+  const paymentMethods = dbPaymentMethods && dbPaymentMethods.length > 0
+    ? dbPaymentMethods.map((method) => {
+      const realUsd = summary?.payments?.[method.name] || 0.0
       return {
-        icon: IconMap[method.icon] || CreditCard,
-        label: method.label,
+        icon: CreditCard, // Icono por defecto genérico si no hay imagen
+        label: method.name,
         usd: realUsd,
         bs: realUsd * exchangeRate,
-        color: method.color || "text-primary"
+        color: "text-primary",
+        imageUrl: method.image_url
       }
     })
     : paymentMethodsMock.map((method) => {
@@ -77,7 +78,8 @@ export function DashboardContent({ onOpenCaja, onCloseCaja }: DashboardContentPr
       return {
         ...method,
         usd: realUsd,
-        bs: realUsd * exchangeRate
+        bs: realUsd * exchangeRate,
+        imageUrl: null
       }
     })
 
@@ -144,8 +146,12 @@ export function DashboardContent({ onOpenCaja, onCloseCaja }: DashboardContentPr
             <Card key={method.label} className="border-border shadow-sm hover:shadow-md transition-shadow bg-card rounded-xl">
               <CardHeader className="pb-1 pt-3 px-4">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary/80">
-                    <method.icon className={`h-3.5 w-3.5 ${method.color}`} />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary/80 overflow-hidden">
+                    {method.imageUrl ? (
+                       <img src={`http://127.0.0.1:8000/static/payment_methods/thumb_${method.imageUrl}.webp`} alt={method.label} className="h-full w-full object-cover" />
+                    ) : (
+                       <method.icon className={`h-3.5 w-3.5 ${method.color}`} />
+                    )}
                   </div>
                   <CardTitle className="text-xs font-semibold text-foreground">
                     {method.label}

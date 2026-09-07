@@ -48,16 +48,7 @@ export function SettingsModule() {
   const [printLogo, setPrintLogo] = useState(true)
   const [ticketSize, setTicketSize] = useState("80mm")
   const [ticketMessage, setTicketMessage] = useState("Gracias por su compra. ¡Vuelva pronto!")
-  // Payment methods
-  const defaultMethods = [
-    { id: "efectivo-usd", label: "Efectivo USD", icon: "DollarSign", color: "text-green-600", currency: "USD" },
-    { id: "efectivo-bs", label: "Efectivo Bs", icon: "Banknote", color: "text-blue-600", currency: "VES" },
-    { id: "debito", label: "Débito", icon: "CreditCard", color: "text-purple-600", currency: "VES" },
-    { id: "credito", label: "Crédito", icon: "CreditCard", color: "text-orange-600", currency: "VES" },
-    { id: "transferencia", label: "Transferencia", icon: "Smartphone", color: "text-cyan-600", currency: "VES" },
-    { id: "pago-movil", label: "Pago Móvil", icon: "QrCode", color: "text-pink-600", currency: "VES" }
-  ]
-  const [paymentMethods, setPaymentMethods] = useState<any[]>(defaultMethods)
+
 
   useEffect(() => {
     if (config) {
@@ -74,13 +65,7 @@ export function SettingsModule() {
       setPrintLogo(config.print_logo ?? true)
       setTicketSize(config.ticket_size || "80mm")
       setTicketMessage(config.ticket_message || "Gracias por su compra. ¡Vuelva pronto!")
-      try {
-        if (config.payment_methods_json) {
-          setPaymentMethods(JSON.parse(config.payment_methods_json))
-        }
-      } catch(e) {
-        console.error("Failed to parse payment methods", e)
-      }
+
     }
   }, [config])
 
@@ -98,9 +83,7 @@ export function SettingsModule() {
         wholesale_min_qty: parseInt(wholesaleMinQty, 10) || 10,
         auto_print: autoPrint,
         print_logo: printLogo,
-        ticket_size: ticketSize,
-        ticket_message: ticketMessage,
-        payment_methods_json: JSON.stringify(paymentMethods)
+        ticket_message: ticketMessage
       })
       toast.success("Configuraciones globales actualizadas exitosamente")
     } catch (e: any) {
@@ -290,86 +273,6 @@ export function SettingsModule() {
         </CardContent>
       </Card>
 
-      {/* Payment Methods */}
-      <Card className="border-border/50 shadow-md">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <CreditCard className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-               <CardTitle>Métodos de Pago</CardTitle>
-               <p className="text-xs text-muted-foreground mt-1">Configura las formas de pago aceptadas y su moneda.</p>
-               <p className="text-[10px] font-bold text-amber-600 mt-1 uppercase tracking-tighter">Nota: No se pueden eliminar métodos con balance activo (transacciones registradas).</p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-           {paymentMethods.map((method, index) => (
-              <div key={index} className="flex gap-3 items-center border border-border/50 p-2 rounded-lg bg-card focus-within:ring-1 focus-within:ring-primary/20">
-                 <div className="flex-[2] space-y-1">
-                    <Label className="text-xs font-semibold text-muted-foreground">Nombre a Mostrar</Label>
-                    <Input value={method.label} onChange={e => {
-                       const newLabel = e.target.value
-                       const newMethods = [...paymentMethods]
-                       newMethods[index].label = newLabel
-                       // Generar ID limpio automáticamente
-                       newMethods[index].id = newLabel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
-                       setPaymentMethods(newMethods)
-                    }} className="h-8 text-xs" />
-                 </div>
-                 <div className="flex-1 space-y-1">
-                    <Label className="text-xs font-semibold text-muted-foreground">Moneda</Label>
-                    <Select value={method.currency || "VES"} onValueChange={v => {
-                        const newMethods = [...paymentMethods]
-                        newMethods[index].currency = v
-                        setPaymentMethods(newMethods)
-                    }}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                         <SelectItem value="VES">Bolívar (VES)</SelectItem>
-                         <SelectItem value="USD">Dólar (USD)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                 </div>
-                 <div className="flex-1 space-y-1">
-                    <Label className="text-xs font-semibold text-muted-foreground">Ícono</Label>
-                    <Select value={method.icon || "CreditCard"} onValueChange={v => {
-                        const newMethods = [...paymentMethods]
-                        newMethods[index].icon = v
-                        setPaymentMethods(newMethods)
-                    }}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                         <SelectItem value="DollarSign">💸 Dólar</SelectItem>
-                         <SelectItem value="Banknote">💵 Billete</SelectItem>
-                         <SelectItem value="CreditCard">💳 Tarjeta</SelectItem>
-                         <SelectItem value="Smartphone">📱 Móvil</SelectItem>
-                         <SelectItem value="QrCode">🔳 QR</SelectItem>
-                         <SelectItem value="ArrowRightLeft">🔄 Traslado</SelectItem>
-                         <SelectItem value="Wallet">👛 Billetera</SelectItem>
-                         <SelectItem value="Building">🏦 Banco</SelectItem>
-                      </SelectContent>
-                    </Select>
-                 </div>
-                 <div className="pt-5 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => {
-                        setPaymentMethods(paymentMethods.filter((_, i) => i !== index))
-                    }}>
-                       <Trash2 className="h-4 w-4" />
-                    </Button>
-                 </div>
-              </div>
-           ))}
-           <Button variant="outline" className="w-full gap-2 border-dashed border-2 py-6 text-muted-foreground hover:text-foreground" onClick={() => {
-              setPaymentMethods([...paymentMethods, { id: "nuevo-metodo", label: "Nuevo Método", icon: "CreditCard", color: "text-primary", currency: "VES" }])
-           }}>
-              <PlusCircle className="h-5 w-5" />
-              Añadir Método de Pago
-           </Button>
-        </CardContent>
-      </Card>
-
       {/* Receipt & Printing */}
       <Card className="border-border/50 shadow-md">
         <CardHeader>
@@ -555,6 +458,8 @@ export function SettingsModule() {
           {updateSystem.isPending ? "Aplicando..." : "Guardar Configuraciones"}
         </Button>
       </div>
+
+
     </div>
   )
 }

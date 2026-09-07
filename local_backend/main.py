@@ -17,6 +17,7 @@ from local_backend.api.routers.cash_register import router as cash_register_rout
 from local_backend.api.routers.reports import router as reports_router
 from local_backend.api.routers.audit import router as audit_router
 from local_backend.api.routers.supervisor_auth import router as supervisor_auth_router
+from local_backend.api.routers.payment_methods import router as payment_methods_router
 
 
 from contextlib import asynccontextmanager
@@ -65,9 +66,14 @@ app.add_middleware(AuditMiddleware)
 # Setup static files for images
 import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_DIR = os.path.join(BASE_DIR, "data", "uploads", "products")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/static/products", StaticFiles(directory=UPLOAD_DIR), name="product_images")
+
+UPLOAD_DIR_PRODUCTS = os.path.join(BASE_DIR, "data", "uploads", "products")
+os.makedirs(UPLOAD_DIR_PRODUCTS, exist_ok=True)
+app.mount("/static/products", StaticFiles(directory=UPLOAD_DIR_PRODUCTS), name="product_images")
+
+UPLOAD_DIR_PAYMENT_METHODS = os.path.join(BASE_DIR, "data", "uploads", "payment_methods")
+os.makedirs(UPLOAD_DIR_PAYMENT_METHODS, exist_ok=True)
+app.mount("/static/payment_methods", StaticFiles(directory=UPLOAD_DIR_PAYMENT_METHODS), name="payment_method_images")
 
 
 app.include_router(system_router, prefix="/api/v1")
@@ -81,6 +87,7 @@ app.include_router(cash_register_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
 app.include_router(supervisor_auth_router, prefix="/api/v1")
+app.include_router(payment_methods_router, prefix="/api/v1")
 
 
 
