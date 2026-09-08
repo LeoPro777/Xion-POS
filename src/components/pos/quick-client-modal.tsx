@@ -100,7 +100,7 @@ export function QuickClientModal({ open, onClose, initialIdNumber, onClientCreat
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent className="sm:max-w-[450px] shadow-2xl rounded-2xl border-0 p-0 overflow-hidden">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-[450px] shadow-2xl rounded-2xl border-0 p-0 overflow-hidden">
         <DialogHeader className="p-6 bg-primary/5 border-b border-border">
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             <span className="p-2 rounded-lg bg-primary/10 text-primary">

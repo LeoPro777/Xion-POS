@@ -334,3 +334,42 @@ class PaymentMethodModel(SQLModel, table=True):
     is_system: bool = Field(default=False, nullable=False)
     is_active: bool = Field(default=True, nullable=False)
     image_url: Optional[str] = Field(default=None, nullable=True)
+
+class DeliveryNote(SQLModel, table=True):
+    """
+    Nota de Entrega o Prefactura (Documento NO FISCAL).
+    """
+    __tablename__: str = "delivery_notes"
+
+    id: Optional[str] = Field(default=None, primary_key=True, index=True)
+    document_type: str = Field(nullable=False) # "PREFACTURA" o "NOTA_ENTREGA"
+    document_number: int = Field(default=0, index=True) # Correlativo interno autoincremental
+    
+    client_id: Optional[str] = Field(default=None, foreign_key="client.id")
+    client_name: str = Field(default="Cliente Final", nullable=False)
+    
+    subtotal_usd: float = Field(default=0.0)
+    discount_usd: float = Field(default=0.0)
+    total_amount_usd: float = Field(default=0.0)
+    total_amount_bs: float = Field(default=0.0)
+    exchange_rate: float = Field(default=36.5, nullable=False)
+    
+    status: str = Field(default="EMITIDA", nullable=False) # 'EMITIDA', 'ANULADA'
+    pdf_path: Optional[str] = Field(default=None)
+    
+    cash_session_id: Optional[str] = Field(default=None, foreign_key="cash_sessions.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class DeliveryNoteItem(SQLModel, table=True):
+    """
+    Detalle de ítems para Notas de Entrega o Prefacturas.
+    """
+    __tablename__: str = "delivery_note_items"
+
+    id: Optional[str] = Field(default=None, primary_key=True, index=True)
+    delivery_note_id: str = Field(nullable=False, foreign_key="delivery_notes.id", index=True)
+    product_id: str = Field(nullable=False, foreign_key="product.id")
+    product_name: str = Field(nullable=False)
+    quantity: float = Field(nullable=False)
+    unit_price_usd: float = Field(default=0.0)
+    total_price_usd: float = Field(default=0.0)

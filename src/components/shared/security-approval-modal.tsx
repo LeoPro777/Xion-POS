@@ -237,7 +237,7 @@ export function SecurityApprovalModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md shadow-2xl border-primary/20 bg-card">
+      <DialogContent aria-describedby={undefined} className="max-w-md shadow-2xl border-primary/20 bg-card">
         <DialogHeader className="space-y-3 pb-2 text-center flex flex-col items-center">
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
             <ShieldCheck className="h-8 w-8 text-primary animate-pulse" />

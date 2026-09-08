@@ -9,6 +9,7 @@ import { ArqueoModal } from "./arqueo-modal"
 import { AperturaModal } from "./apertura-modal"
 import { SalesModule } from "./sales-module"
 import { InventoryModule } from "./inventory-module"
+import { DeliveryNotesModule } from "./delivery-notes-module"
 import { UsersModule } from "./users-module"
 import { PurchasesModule } from "./purchases-module"
 import { ClientsModule } from "./clients-module"
@@ -38,6 +39,8 @@ export function DashboardScreen({ onLogout, currentUser }: DashboardScreenProps)
     switch (activeNav) {
       case "Ventas":
         return <SalesModule />
+      case "Notas de Entrega":
+        return <DeliveryNotesModule />
       case "Compras":
         return <PurchasesModule />
       case "Inventario":

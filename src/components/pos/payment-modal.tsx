@@ -211,7 +211,7 @@ export function PaymentModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] sm:w-fit sm:max-w-fit shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent aria-describedby={undefined} className="w-[95vw] sm:w-fit sm:max-w-fit shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader className="space-y-3 shrink-0">
           <DialogTitle className="text-2xl font-bold text-foreground">
             {step === 1 ? "Seleccionar Métodos de Pago" : "Totalizador de Pagos"}

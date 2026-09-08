@@ -134,7 +134,7 @@ export function PaymentMethodModal({ open, onClose, method }: PaymentMethodModal
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="w-[90vw] max-w-md shadow-2xl p-6">
+      <DialogContent aria-describedby={undefined} className="w-[90vw] max-w-md shadow-2xl p-6">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">
             {isEditing ? "Editar Método de Pago" : "Nuevo Método de Pago"}

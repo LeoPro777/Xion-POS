@@ -35,6 +35,7 @@ import { useProducts, Product } from "@/hooks/queries/use-inventory"
 import { useCreateSale, SaleCreateDTO, SalePaymentDTO } from "@/hooks/queries/use-sales"
 import { useSystemStatus } from "@/hooks/queries/use-system"
 import { useClients, Client } from "@/hooks/queries/use-clients"
+import { useCreateDeliveryNote, DeliveryNoteCreateDTO } from "@/hooks/queries/use-delivery-notes"
 import { PaymentModal } from "./payment-modal"
 import { QuickClientModal } from "./quick-client-modal"
 import { ProductImage } from "./product-image"
@@ -98,6 +99,47 @@ export function SalesModule() {
   const { data: dbProducts = [] } = useProducts()
   const { data: clients = [] } = useClients()
   const createSale = useCreateSale()
+  const createDeliveryNote = useCreateDeliveryNote()
+
+  const handleDeliveryNote = async (type: "PREFACTURA" | "NOTA_ENTREGA") => {
+    if (cart.length === 0) return
+    try {
+      const payload: DeliveryNoteCreateDTO = {
+        document_type: type,
+        client_id: selectedClient ? selectedClient.id : undefined,
+        client_name: selectedClient ? selectedClient.name : (clientIdentifier.trim() || "Cliente Final"),
+        subtotal_usd: subtotal,
+        discount_usd: 0,
+        total_amount_usd: total,
+        total_amount_bs: totalBs,
+        exchange_rate: exchangeRate,
+        items: cart.map(i => {
+           const activeP = getItemActivePrice(i, i.cart_quantity)
+           return {
+             product_id: i.id,
+             product_name: i.name,
+             quantity: i.cart_quantity,
+             unit_price_usd: activeP,
+             total_price_usd: activeP * i.cart_quantity
+           }
+        })
+      }
+      
+      const res = await createDeliveryNote.mutateAsync(payload)
+      toast.success(`${type === 'PREFACTURA' ? 'Prefactura' : 'Nota de Entrega'} generada. Abriendo PDF...`)
+      
+      // Open PDF in a new window for printing
+      window.open(`http://127.0.0.1:8000/api/v1/delivery-notes/${res.id}/pdf`, "_blank")
+      
+      if (type === "NOTA_ENTREGA") {
+         setCart([])
+         setClientIdentifier("")
+         setSelectedClient(null)
+      }
+    } catch (e: any) {
+       toast.error(`Error al generar ${type}`)
+    }
+  }
 
   const handleClientSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && clientIdentifier.trim() !== "") {
@@ -466,6 +508,26 @@ export function SalesModule() {
               <Settings className="h-3 w-3" /> F10 OPT.
             </Button>
           </div>
+
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            <Button
+              variant="outline"
+              disabled={cart.length === 0}
+              onClick={() => handleDeliveryNote("PREFACTURA")}
+              className="h-9 text-[10px] font-black uppercase rounded-lg border-2 hover:bg-accent"
+            >
+              Prefactura
+            </Button>
+            <Button
+              variant="outline"
+              disabled={cart.length === 0}
+              onClick={() => handleDeliveryNote("NOTA_ENTREGA")}
+              className="h-9 text-[10px] font-black uppercase text-amber-600 border-2 border-amber-600/30 hover:bg-amber-600/10 rounded-lg"
+            >
+              Nota de Entrega
+            </Button>
+          </div>
+
           <Button
             disabled={cart.length === 0 || (config && !config.is_cash_session_open)}
             onClick={() => setShowPaymentModal(true)}
@@ -543,7 +605,7 @@ export function SalesModule() {
       />
 
       <Dialog open={showHoldModal} onOpenChange={setShowHoldModal}>
-        <DialogContent className="max-w-[500px] p-0 overflow-hidden shadow-2xl rounded-2xl border-0">
+        <DialogContent aria-describedby={undefined} className="max-w-[500px] p-0 overflow-hidden shadow-2xl rounded-2xl border-0">
            <DialogHeader className="p-5 bg-primary/10 border-b border-primary/20">
              <DialogTitle className="text-lg font-black text-foreground flex items-center gap-2">
                <PauseCircle className="h-5 w-5 text-primary" />

@@ -18,6 +18,7 @@ import {
   Palette,
   CreditCard,
   ShieldCheck, // Icono para auditoría
+  FileText,
 } from "lucide-react"
 import { useState } from "react"
 
@@ -38,6 +39,7 @@ export function DashboardSidebar({ activeItem, onItemClick, currentUser }: Dashb
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard" },
     { icon: ShoppingCart, label: "Ventas" },
+    { icon: FileText, label: "Notas de Entrega" },
     { icon: Truck, label: "Compras" },
     { icon: Package, label: "Inventario" },
     { icon: Users, label: "Usuarios" },

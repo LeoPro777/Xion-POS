@@ -16,7 +16,7 @@ from sqlmodel import Session, select
 
 from local_backend.api.utils.audit_service import log_event, fire_audit_log
 from local_backend.core.database import get_session, get_system_config
-from local_backend.core.models import Sale, SaleItem, SalePayment, Product, ProductComposition, CashSession, InventoryTransaction, Client
+from local_backend.core.models import Sale, SaleItem, SalePayment, Product, ProductComposition, CashSession, InventoryTransaction, Client, PaymentMethodModel
 
 router = APIRouter(prefix="/sales", tags=["Sales"])
 
@@ -78,29 +78,21 @@ class SaleCreateDTO(BaseModel):
 
 def _validate_payment_methods(
     payment_method_ids: List[str],
-    config_json: str,
+    session: Session,
 ) -> None:
     """
-    Verifica que todos los métodos de pago enviados existan en la configuración.
+    Verifica que todos los métodos de pago enviados existan en la base de datos.
     Lanza HTTPException 400 si alguno es inválido, para proteger la integridad.
     """
-    try:
-        configured: List[dict] = json.loads(config_json or "[]")
-    except json.JSONDecodeError:
-        configured = []
-
-    configured_ids = {m.get("id") for m in configured if m.get("id")}
-
-    # Si no hay métodos configurados aún: permitir cualquier ID (modo permisivo inicial)
-    if not configured_ids:
-        return
+    configured = session.exec(select(PaymentMethodModel.code).where(PaymentMethodModel.is_active == True)).all()
+    configured_ids = set(configured)
 
     # Permitir 'CREDITO' como método interno del sistema independientemente de la configuración
     invalid = [pid for pid in payment_method_ids if pid not in configured_ids and pid != "CREDITO"]
     if invalid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Métodos de pago no reconocidos en la configuración: {invalid}",
+            detail=f"Métodos de pago no reconocidos o inactivos: {invalid}",
         )
 
 
@@ -145,7 +137,7 @@ def register_sale(payload: SaleCreateDTO, session: Session = Depends(get_session
 
     # Validar métodos de pago contra la configuración activa
     method_ids = [p.payment_method_id for p in payload.payments]
-    _validate_payment_methods(method_ids, config.payment_methods_json)
+    _validate_payment_methods(method_ids, session)
 
     # Validar que el pago cubra el total
     _validate_payment_total(payload.payments, payload.total_amount_usd)

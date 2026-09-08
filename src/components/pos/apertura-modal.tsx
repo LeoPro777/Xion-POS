@@ -52,7 +52,7 @@ export function AperturaModal({ open, onClose }: AperturaModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Apertura de Caja</DialogTitle>
           <DialogDescription>

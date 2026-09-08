@@ -69,7 +69,7 @@ export function ArqueoModal({ open, onClose }: ArqueoModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl shadow-2xl">
+      <DialogContent aria-describedby={undefined} className="max-w-3xl shadow-2xl">
         <DialogHeader className="space-y-2">
           <DialogTitle className="text-2xl font-bold text-foreground">
             Arqueo de Caja
