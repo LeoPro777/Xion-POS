@@ -7,14 +7,17 @@
 
 import json
 import asyncio
+import os
 from typing import List, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
 from local_backend.api.utils.audit_service import log_event, fire_audit_log
+from local_backend.api.utils.pdf_generator import generate_delivery_note_pdf
 from local_backend.core.database import get_session, get_system_config
 from local_backend.core.models import Sale, SaleItem, SalePayment, Product, ProductComposition, CashSession, InventoryTransaction, Client, PaymentMethodModel
 
@@ -316,6 +319,55 @@ def get_sale_payments(sale_id: str, session: Session = Depends(get_session)):
         select(SalePayment).where(SalePayment.sale_id == sale_id)
     ).all()
     return payments
+
+@router.get("/{sale_id}/ticket")
+def get_sale_ticket(sale_id: str, session: Session = Depends(get_session)):
+    """Genera y retorna el PDF de la Nota de Entrega (Ticket) de la venta."""
+    sale = session.get(Sale, sale_id)
+    if not sale:
+        raise HTTPException(status_code=404, detail="Venta no encontrada")
+    
+    config = get_system_config(session)
+    items = session.exec(select(SaleItem).where(SaleItem.sale_id == sale_id)).all()
+    
+    # Prepara directorio y path
+    pdf_dir = os.path.join(os.getcwd(), "data", "tickets")
+    os.makedirs(pdf_dir, exist_ok=True)
+    pdf_filename = f"NOTA_ENTREGA_{sale_id[:8]}.pdf"
+    pdf_path = os.path.join(pdf_dir, pdf_filename)
+    
+    # Si ya existe y está en estado final, podríamos retornarlo directo, pero para este 
+    # caso lo generamos on-the-fly o sobreescribimos por si cambiaron datos como config.
+    
+    items_for_pdf = []
+    for item in items:
+        items_for_pdf.append({
+            "product_name": item.product_name,
+            "quantity": item.quantity,
+            "unit_price_usd": item.unit_price_usd,
+            "total_price_usd": item.total_price_usd
+        })
+        
+    note_data = {
+        "store_name": config.store_name,
+        "store_rif": config.store_rif,
+        "document_type": "NOTA DE ENTREGA",
+        # Usamos el short id o un correlativo. Para simplificar, los ultimos 6 chars o un numero interno.
+        "document_number": str(sale.id[:6]).upper(),
+        "client_name": sale.client_name,
+        "date": sale.created_at.strftime("%d/%m/%Y %H:%M") if sale.created_at else "",
+        "total_amount_usd": sale.total_amount_usd,
+        "total_amount_bs": sale.total_amount_bs
+    }
+    
+    generate_delivery_note_pdf(note_data, items_for_pdf, pdf_path, config.ticket_size)
+    
+    return FileResponse(
+        pdf_path, 
+        media_type="application/pdf", 
+        filename=pdf_filename,
+        headers={"Content-Disposition": f"inline; filename={pdf_filename}"}
+    )
 
 @router.post("/{sale_id}/refund", response_model=Sale)
 def refund_sale(
